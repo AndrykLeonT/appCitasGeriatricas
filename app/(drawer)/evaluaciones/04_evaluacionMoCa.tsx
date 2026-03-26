@@ -21,11 +21,9 @@ export default function EvaluacionMoCaScreen() {
   const [tiempoInicio, setTiempoInicio] = React.useState(0);
   const [resultadoEjes, setResultadoEjes] = React.useState('');
 
-  // Estado para los puntos de cada sección
   const [puntos, setPuntos] = React.useState<{ [key: string]: boolean }>({});
   const [puntosResta, setPuntosResta] = React.useState(0);
 
-  // Estado para los datos del paciente
   const [nombre, setNombre] = React.useState('');
   const [edad, setEdad] = React.useState('');
   const [fecha, setFecha] = React.useState('');
