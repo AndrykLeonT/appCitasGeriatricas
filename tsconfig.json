@@ -2,7 +2,10 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ESNext",
-    "lib": ["ES2020", "dom"],
+    "lib": [
+      "ES2020",
+      "dom"
+    ],
     "jsx": "react",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -13,9 +16,22 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", ".expo", "dist", "build"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".expo",
+    "dist",
+    "build"
+  ],
+  "extends": "expo/tsconfig.base"
 }

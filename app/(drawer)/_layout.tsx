@@ -76,7 +76,7 @@ export default function Layout() {
         options={{ title: "Pacientes", drawerLabel: "Pacientes" }}
       />
       <Drawer.Screen
-        name="pacientes/registroPersonalMedico"
+        name="medicos/registroPersonalMedico"
         options={{ drawerItemStyle: { display: "none" }, title: "Registro Médico" }}
       />
       <Drawer.Screen

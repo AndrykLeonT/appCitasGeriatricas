@@ -30,7 +30,7 @@ export default function PacientesIndex() {
                         styles.tarjeta,
                         { opacity: pressed ? 0.7 : 1 },
                     ]}
-                    onPress={() => router.push("/(drawer)/pacientes/registroPersonalMedico")}
+                    onPress={() => router.push("/(drawer)/medicos/registroPersonalMedico")}
                 >
                     <FontAwesome5 name="user-md" size={38} color="#10B981" />
                     <Text style={styles.tarjetaTitulo}>Personal Médico</Text>
