@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Alert,
     ScrollView,
     StyleSheet,
@@ -9,8 +11,15 @@ import {
     View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { createPatientInFirebase, readPatientsFromFirebase, updatePatientInFirebase } from "../../../services/firebasePatients";
 
 export default function RegistroPaciente() {
+    const router = useRouter();
+    const { id } = useLocalSearchParams<{ id?: string }>();
+
+    const [loading, setLoading] = useState(false);
+    const [initialFetchLoading, setInitialFetchLoading] = useState(!!id);
+
     const [formData, setFormData] = useState({
         nombre: "",
         apellidos: "",
@@ -34,20 +43,82 @@ export default function RegistroPaciente() {
         talla: "",
     });
 
+    useEffect(() => {
+        if (id) {
+            const fetchPatient = async () => {
+                try {
+                    const patients = await readPatientsFromFirebase();
+                    const patientToEdit = patients.find(p => p.id === id);
+                    if (patientToEdit) {
+                        const { id: _, ...rest } = patientToEdit;
+                        setFormData(rest);
+                    } else {
+                        Alert.alert("Error", "Paciente no encontrado");
+                        router.back();
+                    }
+                } catch (error) {
+                    Alert.alert("Error", "No se pudieron cargar los datos del paciente");
+                } finally {
+                    setInitialFetchLoading(false);
+                }
+            };
+            fetchPatient();
+        }
+    }, [id]);
+
     const handleChange = (name: string, value: string) => {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleGuardar = () => {
-        Alert.alert("Éxito", "Paciente registrado exitosamente (simulado).");
-        console.log("Datos del paciente:", formData);
+    const handleGuardar = async () => {
+        if (!formData.nombre || !formData.apellidos) {
+            Alert.alert("Campos requeridos", "Por favor ingresa al menos nombre y apellidos.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            if (id) {
+                await updatePatientInFirebase(id, formData);
+                Alert.alert("Éxito", "Paciente actualizado exitosamente.");
+            } else {
+                await createPatientInFirebase(formData);
+                Alert.alert("Éxito", "Paciente registrado exitosamente.");
+            }
+
+            setFormData({
+                nombre: "", apellidos: "", edad: "", sexo: "", fechaNacimiento: "",
+                estadoCivil: "", ocupacion: "", escolaridad: "", telefono: "",
+                correo: "", direccion: "", contactoEmergencia: "", telefonoEmergencia: "",
+                tipoSangre: "", alergias: "", enfermedadesCronicas: "", cirugiasPrevias: "",
+                medicamentosActuales: "", peso: "", talla: "",
+            });
+            router.back();
+
+        } catch (error) {
+            Alert.alert("Error", "Hubo un problema al guardar los datos del paciente. Inténtalo de nuevo.");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
     };
+
+    if (initialFetchLoading) {
+        return (
+            <SafeAreaProvider>
+                <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+                    <ActivityIndicator size="large" color="#3B82F6" />
+                    <Text style={{ marginTop: 10, color: "#6B7280" }}>Cargando datos del paciente...</Text>
+                </SafeAreaView>
+            </SafeAreaProvider>
+        );
+    }
 
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
                 <ScrollView style={styles.scrollContent}>
-                    <Text style={styles.title}>Registro de Paciente</Text>
+                    <Text style={styles.title}>{id ? "Editar Paciente" : "Registro de Paciente"}</Text>
                     <Text style={styles.subtitle}>Complete la información requerida clínica y personal.</Text>
 
                     <View style={styles.section}>
@@ -156,8 +227,18 @@ export default function RegistroPaciente() {
                         </View>
                     </View>
 
-                    <TouchableOpacity style={styles.btnGuardar} onPress={handleGuardar}>
-                        <Text style={styles.btnGuardarText}>Registrar Paciente</Text>
+                    <TouchableOpacity
+                        style={[styles.btnGuardar, loading && { opacity: 0.7 }]}
+                        onPress={handleGuardar}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#ffffff" />
+                        ) : (
+                            <Text style={styles.btnGuardarText}>
+                                {id ? "Actualizar Paciente" : "Registrar Paciente"}
+                            </Text>
+                        )}
                     </TouchableOpacity>
                     <View style={{ height: 40 }} />
                 </ScrollView>
@@ -222,8 +303,10 @@ const styles = StyleSheet.create({
         paddingVertical: 16,
         borderRadius: 8,
         alignItems: "center",
+        justifyContent: "center",
         marginTop: 10,
         marginBottom: 20,
+        minHeight: 55,
     },
     btnGuardarText: { color: "#ffffff", fontSize: 16, fontWeight: "bold" },
 });

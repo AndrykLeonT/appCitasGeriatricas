@@ -76,6 +76,10 @@ export default function Layout() {
         options={{ title: "Pacientes", drawerLabel: "Pacientes" }}
       />
       <Drawer.Screen
+        name="medicos/index"
+        options={{ title: "Médicos", drawerLabel: "Médicos" }}
+      />
+      <Drawer.Screen
         name="medicos/registroPersonalMedico"
         options={{ drawerItemStyle: { display: "none" }, title: "Registro Médico" }}
       />
