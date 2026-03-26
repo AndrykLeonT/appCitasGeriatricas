@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 // SQLite Database Setup
 const initDB = async () => {
@@ -37,6 +38,9 @@ const initDB = async () => {
 };
 
 export default function RegistroPersonalMedico() {
+  const router = useRouter();
+  const { medicoData } = useLocalSearchParams();
+
   // DB State
   const [db, setDb] = useState<SQLite.SQLiteDatabase | null>(null);
 
@@ -56,14 +60,11 @@ export default function RegistroPersonalMedico() {
   const [telefono, setTelefono] = useState("");
   const [cubreUrgencias, setCubreUrgencias] = useState(false);
 
-  const [registros, setRegistros] = useState<any[]>([]);
-
   useEffect(() => {
     const setup = async () => {
       try {
         const database = await initDB();
         setDb(database);
-        await obtenerMedicos(database);
       } catch (error) {
         console.error("Error al inicializar la base de datos", error);
         Alert.alert("Error", "No se pudo conectar a la base de datos.");
@@ -72,16 +73,28 @@ export default function RegistroPersonalMedico() {
     setup();
   }, []);
 
-  const obtenerMedicos = async (database: SQLite.SQLiteDatabase) => {
-    try {
-      const result = await database.getAllAsync(
-        "SELECT * FROM PersonalMedico ORDER BY id DESC;",
-      );
-      setRegistros(result);
-    } catch (error) {
-      console.error("Error al obtener médicos", error);
+  useEffect(() => {
+    if (medicoData) {
+      try {
+        const medico = JSON.parse(medicoData as string);
+        setIdEditando(medico.id);
+        setNombre(medico.nombre || "");
+        setApellido1(medico.apellido1 || "");
+        setApellido2(medico.apellido2 || "");
+        setRfc(medico.rfc || "");
+        setCedula(medico.cedula || "");
+        setCarrera(medico.carrera || "");
+        setEscuela(medico.escuela || "");
+        setTituloEspecialidad(medico.tituloEspecialidad || "");
+        setEscuelaEspecialidad(medico.escuelaEspecialidad || "");
+        setTurno(medico.turno || "Matutino");
+        setTelefono(medico.telefono || "");
+        setCubreUrgencias(medico.cubreUrgencias === 1);
+      } catch (e) {
+        console.error("Error parsing medicoData", e);
+      }
     }
-  };
+  }, [medicoData]);
 
   const limpiarFormulario = () => {
     setIdEditando(null);
@@ -122,9 +135,9 @@ export default function RegistroPersonalMedico() {
           cubreUrgencias ? 1 : 0,
         ],
       );
-      Alert.alert("Éxito", "Personal médico guardado correctamente.");
-      limpiarFormulario();
-      obtenerMedicos(db);
+      Alert.alert("Éxito", "Personal médico guardado correctamente.", [
+        { text: "OK", onPress: () => router.back() }
+      ]);
     } catch (error) {
       console.error("Error al insertar médico", error);
       Alert.alert("Error", "No se pudo guardar el registro.");
@@ -155,9 +168,9 @@ export default function RegistroPersonalMedico() {
           idEditando,
         ],
       );
-      Alert.alert("Éxito", "Datos del médico actualizados correctamente.");
-      limpiarFormulario();
-      obtenerMedicos(db);
+      Alert.alert("Éxito", "Datos del médico actualizados correctamente.", [
+        { text: "OK", onPress: () => router.back() }
+      ]);
     } catch (error) {
       console.error("Error al actualizar médico", error);
       Alert.alert("Error", "No se pudo actualizar el registro.");
@@ -178,46 +191,6 @@ export default function RegistroPersonalMedico() {
     } else {
       insertarMedico();
     }
-  };
-
-  const handleEditar = (medico: any) => {
-    setIdEditando(medico.id);
-    setNombre(medico.nombre || "");
-    setApellido1(medico.apellido1 || "");
-    setApellido2(medico.apellido2 || "");
-    setRfc(medico.rfc || "");
-    setCedula(medico.cedula || "");
-    setCarrera(medico.carrera || "");
-    setEscuela(medico.escuela || "");
-    setTituloEspecialidad(medico.tituloEspecialidad || "");
-    setEscuelaEspecialidad(medico.escuelaEspecialidad || "");
-    setTurno(medico.turno || "Matutino");
-    setTelefono(medico.telefono || "");
-    setCubreUrgencias(medico.cubreUrgencias === 1);
-  };
-
-  const eliminarMedico = async (id: number) => {
-    if (!db) return;
-    try {
-      await db.runAsync("DELETE FROM PersonalMedico WHERE id = ?;", [id]);
-      Alert.alert("Éxito", "Registro eliminado correctamente.");
-      if (id === idEditando) limpiarFormulario();
-      obtenerMedicos(db);
-    } catch (error) {
-      console.error("Error al eliminar médico", error);
-      Alert.alert("Error", "No se pudo eliminar el registro.");
-    }
-  };
-
-  const handleBorrar = (id: number) => {
-    Alert.alert("Confirmación", "¿Está seguro de eliminar este registro?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Borrar",
-        style: "destructive",
-        onPress: () => eliminarMedico(id),
-      },
-    ]);
   };
 
   return (
@@ -415,59 +388,12 @@ export default function RegistroPersonalMedico() {
             </Text>
           </TouchableOpacity>
 
-          {idEditando && (
-            <TouchableOpacity
-              style={styles.btnCancelar}
-              onPress={limpiarFormulario}
-            >
-              <Text style={styles.btnCancelarText}>Cancelar Edición</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={styles.divider} />
-
-          <Text style={styles.listaTitle}>
-            Médicos Registrados ({registros.length})
-          </Text>
-
-          {registros.length === 0 ? (
-            <Text style={styles.emptyText}>
-              No hay médicos registrados aún.
-            </Text>
-          ) : (
-            registros.map((medico: any) => (
-              <View key={medico.id.toString()} style={styles.medicoCard}>
-                <View style={styles.medicoInfo}>
-                  <Text style={styles.medicoName}>
-                    {medico.nombre} {medico.apellido1} {medico.apellido2 || ""}
-                  </Text>
-                  <Text style={styles.medicoSpec}>
-                    {medico.tituloEspecialidad ||
-                      medico.carrera ||
-                      "Sin especialidad"}
-                  </Text>
-                  <Text style={styles.medicoDetails}>
-                    Turno: {medico.turno} | Urgencias:{" "}
-                    {medico.cubreUrgencias ? "Sí" : "No"}
-                  </Text>
-                </View>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity
-                    style={styles.btnEdit}
-                    onPress={() => handleEditar(medico)}
-                  >
-                    <Text style={styles.actionText}>Editar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.btnDelete}
-                    onPress={() => handleBorrar(medico.id)}
-                  >
-                    <Text style={styles.actionTextDelete}>Borrar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
-          )}
+          <TouchableOpacity
+            style={styles.btnCancelar}
+            onPress={() => router.back()}
+          >
+             <Text style={styles.btnCancelarText}>Volver / Cancelar</Text>
+          </TouchableOpacity>
 
           {/* Espacio adicional al final */}
           <View style={{ height: 50 }} />
@@ -559,56 +485,4 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   btnCancelarText: { color: "#4b5563", fontSize: 15, fontWeight: "600" },
-  divider: { height: 1, backgroundColor: "#d1d5db", marginVertical: 25 },
-  listaTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: 15,
-  },
-  emptyText: {
-    color: "#6b7280",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 10,
-  },
-  medicoCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  medicoInfo: { marginBottom: 10 },
-  medicoName: { fontSize: 16, fontWeight: "bold", color: "#111827" },
-  medicoSpec: {
-    fontSize: 14,
-    color: "#4f46e5",
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  medicoDetails: { fontSize: 12, color: "#6b7280", marginTop: 4 },
-  actionButtons: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    borderTopWidth: 1,
-    borderTopColor: "#f3f4f6",
-    paddingTop: 10,
-  },
-  btnEdit: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    backgroundColor: "#f3f4f6",
-    marginRight: 8,
-  },
-  btnDelete: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    backgroundColor: "#fee2e2",
-  },
-  actionText: { color: "#4b5563", fontWeight: "600", fontSize: 13 },
-  actionTextDelete: { color: "#dc2626", fontWeight: "600", fontSize: 13 },
 });
