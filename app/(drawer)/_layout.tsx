@@ -91,6 +91,14 @@ export default function Layout() {
         name="evaluaciones/index"
         options={{ title: "Evaluaciones", drawerLabel: "Menú Evaluaciones" }}
       />
+      <Drawer.Screen
+        name="signos-vitales/index"
+        options={{ drawerItemStyle: { display: "none" }, title: "Signos Vitales" }}
+      />
+      <Drawer.Screen
+        name="signos-vitales/dashboard"
+        options={{ drawerItemStyle: { display: "none" }, title: "Dashboard Signos" }}
+      />
       {/* Evaluaciones */}
       <Drawer.Screen
         name="evaluaciones/01_miniCog"

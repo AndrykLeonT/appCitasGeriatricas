@@ -123,6 +123,13 @@ export default function PacientesIndex() {
             </View>
             <View style={styles.actionsContainer}>
                 <Pressable
+                    style={({ pressed }) => [styles.actionButton, styles.vitalSignsButton, pressed && { opacity: 0.7 }]}
+                    onPress={() => router.push({ pathname: "/(drawer)/signos-vitales/dashboard", params: { id: item.id, nombre: `${item.nombre} ${item.apellidos}` } })}
+                >
+                    <MaterialIcons name="favorite" size={20} color="#fff" />
+                    <Text style={styles.actionText}>Signos</Text>
+                </Pressable>
+                <Pressable
                     style={({ pressed }) => [styles.actionButton, styles.editButton, pressed && { opacity: 0.7 }]}
                     onPress={() => handleEdit(item.id)}
                 >
@@ -347,6 +354,7 @@ const styles = StyleSheet.create({
     },
     editButton: { backgroundColor: "#3B82F6" },
     deleteButton: { backgroundColor: "#EF4444" },
+    vitalSignsButton: { backgroundColor: "#10B981" },
     actionText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
 
     // ── FAB ──
