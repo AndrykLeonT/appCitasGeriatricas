@@ -31,9 +31,18 @@ const initDB = async () => {
       escuelaEspecialidad TEXT,
       turno TEXT,
       telefono TEXT,
-      cubreUrgencias INTEGER
+      cubreUrgencias INTEGER,
+      sexo TEXT
     );
   `);
+
+  try {
+    // Si la tabla ya fue creada pero NO tiene la columna sexo, la agregamos:
+    await db.execAsync(`ALTER TABLE PersonalMedico ADD COLUMN sexo TEXT;`);
+  } catch (e) {
+    // La columna ya existe
+  }
+
   return db;
 };
 
@@ -59,6 +68,7 @@ export default function RegistroPersonalMedico() {
   const [turno, setTurno] = useState("Matutino");
   const [telefono, setTelefono] = useState("");
   const [cubreUrgencias, setCubreUrgencias] = useState(false);
+  const [sexo, setSexo] = useState("M");
 
   useEffect(() => {
     const setup = async () => {
@@ -90,6 +100,7 @@ export default function RegistroPersonalMedico() {
         setTurno(medico.turno || "Matutino");
         setTelefono(medico.telefono || "");
         setCubreUrgencias(medico.cubreUrgencias === 1);
+        setSexo(medico.sexo || "M");
       } catch (e) {
         console.error("Error parsing medicoData", e);
       }
@@ -110,6 +121,7 @@ export default function RegistroPersonalMedico() {
     setTurno("Matutino");
     setTelefono("");
     setCubreUrgencias(false);
+    setSexo("M");
   };
 
   const insertarMedico = async () => {
@@ -118,8 +130,8 @@ export default function RegistroPersonalMedico() {
       await db.runAsync(
         `INSERT INTO PersonalMedico (
           nombre, apellido1, apellido2, rfc, cedula, carrera, escuela, 
-          tituloEspecialidad, escuelaEspecialidad, turno, telefono, cubreUrgencias
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          tituloEspecialidad, escuelaEspecialidad, turno, telefono, cubreUrgencias, sexo
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           nombre,
           apellido1,
@@ -133,6 +145,7 @@ export default function RegistroPersonalMedico() {
           turno,
           telefono,
           cubreUrgencias ? 1 : 0,
+          sexo,
         ],
       );
       Alert.alert("Éxito", "Personal médico guardado correctamente.", [
@@ -150,7 +163,7 @@ export default function RegistroPersonalMedico() {
       await db.runAsync(
         `UPDATE PersonalMedico SET 
           nombre = ?, apellido1 = ?, apellido2 = ?, rfc = ?, cedula = ?, carrera = ?, escuela = ?, 
-          tituloEspecialidad = ?, escuelaEspecialidad = ?, turno = ?, telefono = ?, cubreUrgencias = ?
+          tituloEspecialidad = ?, escuelaEspecialidad = ?, turno = ?, telefono = ?, cubreUrgencias = ?, sexo = ?
         WHERE id = ?`,
         [
           nombre,
@@ -165,6 +178,7 @@ export default function RegistroPersonalMedico() {
           turno,
           telefono,
           cubreUrgencias ? 1 : 0,
+          sexo,
           idEditando,
         ],
       );
@@ -238,6 +252,27 @@ export default function RegistroPersonalMedico() {
                 value={apellido2}
                 onChangeText={setApellido2}
               />
+            </View>
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Sexo</Text>
+            <View style={styles.tabsContainer}>
+              {[{ label: "Masculino", value: "M" }, { label: "Femenino", value: "F" }].map((op) => (
+                <TouchableOpacity
+                  key={op.value}
+                  style={[
+                    styles.tabButton,
+                    sexo === op.value && styles.tabButtonActive,
+                    op.value === "F" && { borderLeftWidth: 1, borderColor: "#d1d5db" },
+                  ]}
+                  onPress={() => setSexo(op.value)}
+                >
+                  <Text style={[styles.tabText, sexo === op.value && styles.tabTextActive]}>
+                    {op.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
