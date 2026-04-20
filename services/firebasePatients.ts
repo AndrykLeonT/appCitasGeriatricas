@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { child, get, getDatabase, push, ref, remove, set, update } from 'firebase/database';
+import { child, get, getDatabase, push, ref, remove, set, update, query, orderByChild, equalTo } from 'firebase/database';
 
 const firebaseConfig = {
     apiKey: "AIzaSyD_jsVshuAyx2ObSSslZFmrL91HYynPyfw",
@@ -89,5 +89,74 @@ export const deletePatientFromFirebase = async (id: string): Promise<void> => {
     } catch (e) {
         console.error("Error deleting document: ", e);
         throw e;
+    }
+};
+
+export interface SignoVital {
+    id?: string;
+    fechaHora: string;
+    valor: string;
+    pacienteId: string;
+}
+
+export const createTemperaturaCorporal = async (data: Omit<SignoVital, 'id'>): Promise<SignoVital> => {
+    try {
+        const newListRef = push(ref(db, 'temperaturaCorporal'));
+        await set(newListRef, data);
+        return { ...data, id: newListRef.key! };
+    } catch (e) {
+        console.error("Error adding temperatura corporal: ", e);
+        throw e;
+    }
+};
+
+export const createFrecuenciaCardiaca = async (data: Omit<SignoVital, 'id'>): Promise<SignoVital> => {
+    try {
+        const newListRef = push(ref(db, 'frecuenciaCardiaca'));
+        await set(newListRef, data);
+        return { ...data, id: newListRef.key! };
+    } catch (e) {
+        console.error("Error adding frecuencia cardiaca: ", e);
+        throw e;
+    }
+};
+
+export const getTemperaturaPorPaciente = async (pacienteId: string): Promise<SignoVital[]> => {
+    try {
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, 'temperaturaCorporal'));
+        const data: SignoVital[] = [];
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+                const val = childSnapshot.val();
+                if (val.pacienteId === pacienteId) {
+                    data.push({ id: childSnapshot.key, ...val });
+                }
+            });
+        }
+        return data.sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime());
+    } catch (e) {
+        console.error("Error fetching temperatura: ", e);
+        return [];
+    }
+};
+
+export const getFrecuenciaCardiacaPorPaciente = async (pacienteId: string): Promise<SignoVital[]> => {
+    try {
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, 'frecuenciaCardiaca'));
+        const data: SignoVital[] = [];
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+                const val = childSnapshot.val();
+                if (val.pacienteId === pacienteId) {
+                    data.push({ id: childSnapshot.key, ...val });
+                }
+            });
+        }
+        return data.sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime());
+    } catch (e) {
+        console.error("Error fetching frecuencia: ", e);
+        return [];
     }
 };
