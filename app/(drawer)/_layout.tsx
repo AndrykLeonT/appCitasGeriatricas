@@ -68,6 +68,10 @@ export default function Layout() {
         options={{ title: "Mis Citas", drawerLabel: "Citas" }}
       />
       <Drawer.Screen
+        name="citas/bitacora"
+        options={{ title: "Bitácora", drawerLabel: "Bitácora de Citas" }}
+      />
+      <Drawer.Screen
         name="citas/crear-cita"
         options={{ drawerItemStyle: { display: "none" }, title: "Crear Cita" }}
       />
@@ -90,6 +94,14 @@ export default function Layout() {
       <Drawer.Screen
         name="evaluaciones/index"
         options={{ title: "Evaluaciones", drawerLabel: "Menú Evaluaciones" }}
+      />
+      <Drawer.Screen
+        name="signos-vitales/index"
+        options={{ drawerItemStyle: { display: "none" }, title: "Signos Vitales" }}
+      />
+      <Drawer.Screen
+        name="signos-vitales/dashboard"
+        options={{ drawerItemStyle: { display: "none" }, title: "Dashboard Signos" }}
       />
       {/* Evaluaciones */}
       <Drawer.Screen
