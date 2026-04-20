@@ -391,6 +391,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         borderWidth: 1,
         borderColor: "#E5E7EB",
+        overflow: "hidden"
     },
     chartTitle: {
         fontSize: 16,
