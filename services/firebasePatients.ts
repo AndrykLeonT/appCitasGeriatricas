@@ -39,10 +39,71 @@ export interface Patient {
 
 const PATIENTS_PATH = 'patients';
 
+// Transforms flat form data into the nested Firebase structure
+const buildNestedPatient = (p: Omit<Patient, 'id'>) => ({
+    datosPersonales: {
+        nombres: p.nombre,
+        apellidos: p.apellidos,
+        edad: p.edad,
+        sexo: p.sexo,
+        fechaNacimiento: p.fechaNacimiento,
+        estadoCivil: p.estadoCivil,
+        ocupacion: p.ocupacion,
+        escolaridad: p.escolaridad,
+    },
+    datosContacto: {
+        telefono: p.telefono,
+        correoElectronico: p.correo,
+        direccionCompleta: p.direccion,
+        contactoEmergencia: p.contactoEmergencia,
+        telefonoEmergencia: p.telefonoEmergencia,
+    },
+    datosMedicos: {
+        tipoDeSangre: p.tipoSangre,
+        alergias: p.alergias,
+        enfermedadesCronicas: p.enfermedadesCronicas,
+        cirugiasPrevias: p.cirugiasPrevias,
+        medicamentosActuales: p.medicamentosActuales,
+        peso: p.peso,
+        talla: p.talla,
+    },
+});
+
+// Transforms nested Firebase data back to a flat Patient object
+const nestedToFlat = (key: string, data: any): Patient => {
+    if (data.datosPersonales) {
+        return {
+            id: key,
+            nombre: data.datosPersonales.nombres ?? '',
+            apellidos: data.datosPersonales.apellidos ?? '',
+            edad: String(data.datosPersonales.edad ?? ''),
+            sexo: data.datosPersonales.sexo ?? '',
+            fechaNacimiento: data.datosPersonales.fechaNacimiento ?? '',
+            estadoCivil: data.datosPersonales.estadoCivil ?? '',
+            ocupacion: data.datosPersonales.ocupacion ?? '',
+            escolaridad: data.datosPersonales.escolaridad ?? '',
+            telefono: data.datosContacto?.telefono ?? '',
+            correo: data.datosContacto?.correoElectronico ?? '',
+            direccion: data.datosContacto?.direccionCompleta ?? '',
+            contactoEmergencia: data.datosContacto?.contactoEmergencia ?? '',
+            telefonoEmergencia: data.datosContacto?.telefonoEmergencia ?? '',
+            tipoSangre: data.datosMedicos?.tipoDeSangre ?? '',
+            alergias: data.datosMedicos?.alergias ?? '',
+            enfermedadesCronicas: data.datosMedicos?.enfermedadesCronicas ?? '',
+            cirugiasPrevias: data.datosMedicos?.cirugiasPrevias ?? '',
+            medicamentosActuales: data.datosMedicos?.medicamentosActuales ?? '',
+            peso: String(data.datosMedicos?.peso ?? ''),
+            talla: String(data.datosMedicos?.talla ?? ''),
+        };
+    }
+    // Legacy flat record — return as-is
+    return { id: key, ...data };
+};
+
 export const createPatientInFirebase = async (patient: Omit<Patient, 'id'>): Promise<Patient> => {
     try {
         const newListRef = push(ref(db, PATIENTS_PATH));
-        await set(newListRef, patient);
+        await set(newListRef, { creadoEn: Date.now(), ...buildNestedPatient(patient) });
         return { ...patient, id: newListRef.key! };
     } catch (e) {
         console.error("Error adding document: ", e);
@@ -58,11 +119,7 @@ export const readPatientsFromFirebase = async (): Promise<Patient[]> => {
 
         if (snapshot.exists()) {
             snapshot.forEach((childSnapshot) => {
-                const data = childSnapshot.val();
-                patients.push({
-                    id: childSnapshot.key,
-                    ...data
-                });
+                patients.push(nestedToFlat(childSnapshot.key!, childSnapshot.val()));
             });
         }
         return patients;
@@ -75,7 +132,7 @@ export const readPatientsFromFirebase = async (): Promise<Patient[]> => {
 export const updatePatientInFirebase = async (id: string, patientData: Omit<Patient, 'id'>): Promise<void> => {
     try {
         const patientRef = ref(db, `${PATIENTS_PATH}/${id}`);
-        await update(patientRef, patientData);
+        await update(patientRef, buildNestedPatient(patientData));
     } catch (e) {
         console.error("Error updating document: ", e);
         throw e;

@@ -4,6 +4,7 @@ import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -39,16 +40,13 @@ const initDB = async () => {
     `);
 
     try {
-        // En caso de que la tabla provenga de la versión anterior que no tenía este campo, se agrega la columna
         await db.execAsync(`ALTER TABLE PersonalMedico ADD COLUMN sexo TEXT;`);
     } catch (e) {
-        // La columna ya existe
     }
 
     return db;
 };
 
-// ─── Helpers para gráficas ────────────────────────────────────────────────────
 
 /** Pie chart: distribución por sexo */
 function buildSexoPieData(medicos: any[]) {
@@ -141,6 +139,13 @@ export default function MedicosIndex() {
         });
     };
 
+    const handleVerDetalle = (medico: any) => {
+        router.push({
+            pathname: "/(drawer)/medicos/verMedico",
+            params: { medicoData: JSON.stringify(medico) },
+        });
+    };
+
     // ─── Datos de gráficas ───────────────────────────────────────────────────
 
     const pieData = buildSexoPieData(medicos);
@@ -155,7 +160,7 @@ export default function MedicosIndex() {
 
                 {/* ── Gráfica 1: Pie — Distribución por Sexo ── */}
                 <View style={styles.chartCard}>
-                    <Text style={styles.chartTitle}>🥧 Distribución por Sexo</Text>
+                    <Text style={styles.chartTitle}> Distribución por Sexo</Text>
                     <Text style={styles.chartSubtitle}>Proporción de médicos hombres / mujeres</Text>
                     <View style={styles.pieRow}>
                         <PieChart
@@ -196,7 +201,7 @@ export default function MedicosIndex() {
 
                 {/* ── Gráfica 2: Barras — Médicos por Turno ── */}
                 <View style={styles.chartCard}>
-                    <Text style={styles.chartTitle}>📊 Personal por Turno</Text>
+                    <Text style={styles.chartTitle}> Personal por Turno</Text>
                     <Text style={styles.chartSubtitle}>Cantidad de médicos en cada turno</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <BarChart
@@ -237,8 +242,6 @@ export default function MedicosIndex() {
         );
     };
 
-    // ─── Render ───────────────────────────────────────────────────────────────
-
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
@@ -270,21 +273,29 @@ export default function MedicosIndex() {
                             ) : (
                                 medicos.map((medico: any) => (
                                     <View key={medico.id.toString()} style={styles.medicoCard}>
-                                        <View style={styles.medicoInfo}>
-                                            <Text style={styles.medicoName}>
-                                                {medico.nombre} {medico.apellido1} {medico.apellido2 || ""}
-                                            </Text>
-                                            <Text style={styles.medicoSpec}>
-                                                {medico.tituloEspecialidad || medico.carrera || "Sin especialidad"}
-                                            </Text>
-                                            <Text style={styles.medicoDetails}>
-                                                Turno: {medico.turno} | Urgencias:{" "}
-                                                {medico.cubreUrgencias ? "Sí" : "No"}
-                                            </Text>
-                                            <Text style={styles.medicoDetails}>
-                                                Teléfono: {medico.telefono || "N/A"}
-                                            </Text>
-                                        </View>
+                                        <Pressable
+                                            style={({ pressed }) => [styles.medicoInfo, pressed && { backgroundColor: "#F0FDF4" }]}
+                                            onPress={() => handleVerDetalle(medico)}
+                                        >
+                                            <View style={styles.medicoInfoRow}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.medicoName}>
+                                                        {medico.nombre} {medico.apellido1} {medico.apellido2 || ""}
+                                                    </Text>
+                                                    <Text style={styles.medicoSpec}>
+                                                        {medico.tituloEspecialidad || medico.carrera || "Sin especialidad"}
+                                                    </Text>
+                                                    <Text style={styles.medicoDetails}>
+                                                        Turno: {medico.turno} | Urgencias:{" "}
+                                                        {medico.cubreUrgencias ? "Sí" : "No"}
+                                                    </Text>
+                                                    <Text style={styles.medicoDetails}>
+                                                        Teléfono: {medico.telefono || "N/A"}
+                                                    </Text>
+                                                </View>
+                                                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" style={{ alignSelf: "center" }} />
+                                            </View>
+                                        </Pressable>
                                         <View style={styles.actionButtons}>
                                             <TouchableOpacity
                                                 style={styles.btnEdit}
@@ -357,6 +368,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
     },
     medicoInfo: { marginBottom: 10 },
+    medicoInfoRow: { flexDirection: "row", alignItems: "center" },
     medicoName: { fontSize: 18, fontWeight: "bold", color: "#111827" },
     medicoSpec: { fontSize: 15, color: "#10B981", marginTop: 4, fontWeight: "600" },
     medicoDetails: { fontSize: 13, color: "#6b7280", marginTop: 4 },

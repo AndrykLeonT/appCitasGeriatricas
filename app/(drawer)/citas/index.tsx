@@ -80,19 +80,32 @@ export default function CitasIndex() {
         return (
             <>
                 <View style={styles.grid}>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.tarjeta,
-                            { opacity: pressed ? 0.7 : 1 },
-                        ]}
-                        onPress={() => router.push("/(drawer)/citas/crear-cita")}
-                    >
-                        <FontAwesome name="calendar-plus-o" size={40} color="#60A5FA" />
-                        <Text style={styles.tarjetaTitulo}>Crear Nueva Cita</Text>
-                        <Text style={styles.tarjetaDesc}>
-                            Agendar cita en el sistema
-                        </Text>
-                    </Pressable>
+                    <View style={styles.accionesRow}>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.tarjeta,
+                                styles.tarjetaMedia,
+                                { opacity: pressed ? 0.7 : 1 },
+                            ]}
+                            onPress={() => router.push("/(drawer)/citas/crear-cita")}
+                        >
+                            <FontAwesome name="calendar-plus-o" size={36} color="#60A5FA" />
+                            <Text style={styles.tarjetaTitulo}>Nueva Cita</Text>
+                            <Text style={styles.tarjetaDesc}>Agendar cita en el sistema</Text>
+                        </Pressable>
+                        <Pressable
+                            style={({ pressed }) => [
+                                styles.tarjeta,
+                                styles.tarjetaMedia,
+                                { opacity: pressed ? 0.7 : 1 },
+                            ]}
+                            onPress={() => router.push("/(drawer)/citas/bitacora")}
+                        >
+                            <FontAwesome name="book" size={36} color="#8B5CF6" />
+                            <Text style={styles.tarjetaTitulo}>Bitácora</Text>
+                            <Text style={styles.tarjetaDesc}>Historial de citas registradas</Text>
+                        </Pressable>
+                    </View>
                 </View>
 
                 <View style={styles.dashboardHeader}>
@@ -450,6 +463,8 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     grid: { flexDirection: "column", gap: 20, marginBottom: 30 },
+    accionesRow: { flexDirection: "row", gap: 12 },
+    tarjetaMedia: { flex: 1, padding: 18 },
     tarjeta: {
         backgroundColor: "#fff",
         padding: 25,
