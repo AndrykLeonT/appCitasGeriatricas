@@ -63,33 +63,22 @@ export default function Layout() {
         name="index"
         options={{ title: "Inicio", drawerLabel: "Inicio" }}
       />
+      {/* Cada sección usa un Stack anidado para navegación correcta con el botón atrás */}
       <Drawer.Screen
-        name="citas/index"
+        name="citas"
         options={{ title: "Mis Citas", drawerLabel: "Citas" }}
       />
       <Drawer.Screen
-        name="citas/crear-cita"
-        options={{ drawerItemStyle: { display: "none" }, title: "Crear Cita" }}
-      />
-      <Drawer.Screen
-        name="pacientes/index"
+        name="pacientes"
         options={{ title: "Pacientes", drawerLabel: "Pacientes" }}
       />
       <Drawer.Screen
-        name="medicos/index"
+        name="medicos"
         options={{ title: "Médicos", drawerLabel: "Médicos" }}
       />
       <Drawer.Screen
-        name="medicos/registroPersonalMedico"
-        options={{ drawerItemStyle: { display: "none" }, title: "Registro Médico" }}
-      />
-      <Drawer.Screen
-        name="pacientes/registroPaciente"
-        options={{ drawerItemStyle: { display: "none" }, title: "Registro Paciente" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/index"
-        options={{ title: "Evaluaciones", drawerLabel: "Menú Evaluaciones" }}
+        name="evaluaciones"
+        options={{ title: "Evaluaciones", drawerLabel: "Evaluaciones" }}
       />
       <Drawer.Screen
         name="signos-vitales/index"
@@ -98,83 +87,6 @@ export default function Layout() {
       <Drawer.Screen
         name="signos-vitales/dashboard"
         options={{ drawerItemStyle: { display: "none" }, title: "Dashboard Signos" }}
-      />
-      {/* Evaluaciones */}
-      <Drawer.Screen
-        name="evaluaciones/01_miniCog"
-        options={{ title: "Mini-Cog ™", drawerLabel: "01. Mini-Cog ™" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/02_fluenciaVerbalSemantica"
-        options={{ title: "Fluencia verbal semántica", drawerLabel: "02. Fluencia verbal semántica" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/03_minimental"
-        options={{ title: "Mini-Mental", drawerLabel: "03. Mini-Mental" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/04_evaluacionMoCa"
-        options={{ title: "MoCA©", drawerLabel: "04. MoCA©" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/05_formulario"
-        options={{ title: "GDS-15", drawerLabel: "05. GDS-15" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/06_CESD7Test6"
-        options={{ title: "CESD-7 ítems", drawerLabel: "06. CESD-7 ítems" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/07_KatzIndex"
-        options={{ title: "Índice de Katz", drawerLabel: "07. Índice de Katz" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/08_Lawton"
-        options={{ title: "Índice de Lawton", drawerLabel: "08. Índice de Lawton" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/11_App"
-        options={{ title: "Escala Braden", drawerLabel: "11. Escala Braden" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/12_prueba"
-        options={{ title: "Escala Norton", drawerLabel: "12. Escala Norton" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/14_AgudezaVisual"
-        options={{ title: "Visión", drawerLabel: "14. Visión" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/14_Prueba"
-        options={{ drawerItemStyle: { display: "none" } }} // Nested
-      />
-      <Drawer.Screen
-        name="evaluaciones/14_Resultado"
-        options={{ drawerItemStyle: { display: "none" } }} // Nested
-      />
-      <Drawer.Screen
-        name="evaluaciones/15_MNA-SF"
-        options={{ title: "MNA-SF", drawerLabel: "15. MNA-SF" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/16_MUST"
-        options={{ title: "MUST", drawerLabel: "16. MUST" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/17_SARC-F"
-        options={{ title: "SARC-F", drawerLabel: "17. SARC-F" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/18_OARSScreen"
-        options={{ title: "OARS", drawerLabel: "18. OARS" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/19_EscalaMaltrato"
-        options={{ title: "Escala geriátrica de maltrato", drawerLabel: "19. Escala geriátrica de maltrato" }}
-      />
-      <Drawer.Screen
-        name="evaluaciones/20_Formulario"
-        options={{ title: "Movilidad en el entorno", drawerLabel: "20. Movilidad en el entorno" }}
       />
     </Drawer>
   );

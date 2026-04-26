@@ -1,3 +1,4 @@
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SQLite from "expo-sqlite";
 import React, { useEffect, useState } from "react";
 import {
@@ -11,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
 
 // SQLite Database Setup
 const initDB = async () => {
@@ -149,7 +149,7 @@ export default function RegistroPersonalMedico() {
         ],
       );
       Alert.alert("Éxito", "Personal médico guardado correctamente.", [
-        { text: "OK", onPress: () => router.back() }
+        { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error("Error al insertar médico", error);
@@ -183,7 +183,7 @@ export default function RegistroPersonalMedico() {
         ],
       );
       Alert.alert("Éxito", "Datos del médico actualizados correctamente.", [
-        { text: "OK", onPress: () => router.back() }
+        { text: "OK", onPress: () => router.back() },
       ]);
     } catch (error) {
       console.error("Error al actualizar médico", error);
@@ -258,17 +258,28 @@ export default function RegistroPersonalMedico() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Sexo</Text>
             <View style={styles.tabsContainer}>
-              {[{ label: "Masculino", value: "M" }, { label: "Femenino", value: "F" }].map((op) => (
+              {[
+                { label: "Masculino", value: "M" },
+                { label: "Femenino", value: "F" },
+              ].map((op) => (
                 <TouchableOpacity
                   key={op.value}
                   style={[
                     styles.tabButton,
                     sexo === op.value && styles.tabButtonActive,
-                    op.value === "F" && { borderLeftWidth: 1, borderColor: "#d1d5db" },
+                    op.value === "F" && {
+                      borderLeftWidth: 1,
+                      borderColor: "#d1d5db",
+                    },
                   ]}
                   onPress={() => setSexo(op.value)}
                 >
-                  <Text style={[styles.tabText, sexo === op.value && styles.tabTextActive]}>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      sexo === op.value && styles.tabTextActive,
+                    ]}
+                  >
                     {op.label}
                   </Text>
                 </TouchableOpacity>
@@ -427,7 +438,7 @@ export default function RegistroPersonalMedico() {
             style={styles.btnCancelar}
             onPress={() => router.back()}
           >
-             <Text style={styles.btnCancelarText}>Volver / Cancelar</Text>
+            <Text style={styles.btnCancelarText}>Volver / Cancelar</Text>
           </TouchableOpacity>
 
           {/* Espacio adicional al final */}

@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { getTemperaturaPorPaciente, getFrecuenciaCardiacaPorPaciente, SignoVital } from '../../../services/firebasePatients';
 import { getPresionArterialPorPaciente, SignoVitalSQLite } from '../../../services/sqliteSignosVitales';
 import { LineChart } from 'react-native-gifted-charts';
@@ -15,7 +15,8 @@ export default function SignosVitalesDashboard() {
     const [presiones, setPresiones] = useState<SignoVitalSQLite[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchData = async () => {
+
+    const fetchData = useCallback(async () => {
         if (!id) return;
         setLoading(true);
         const [temps, frecs, pres] = await Promise.all([
@@ -27,12 +28,12 @@ export default function SignosVitalesDashboard() {
         setFrecuencias(frecs);
         setPresiones(pres);
         setLoading(false);
-    };
+    }, [id]);
 
     useFocusEffect(
         useCallback(() => {
             fetchData();
-        }, [id])
+        }, [fetchData])
     );
 
     const latestTemp = temperaturas.length > 0 ? temperaturas[temperaturas.length - 1] : null;
@@ -173,7 +174,7 @@ export default function SignosVitalesDashboard() {
                     <Text style={styles.chartUnit}>BPM</Text>
                     {frecuencias.length > 0 ? (
                         <LineChart
-                            data={getChartData(frecuencias.slice(-10))}
+                            data={getChartData(frecuencias.slice(-15))}
                             height={120}
                             width={200}
                             spacing={30}
@@ -192,6 +193,29 @@ export default function SignosVitalesDashboard() {
                             xAxisLabelTextStyle={{ fontSize: 9, color: '#6B7280', width: 40 }}
                             areaChart
                             curved
+                            pointerConfig={{
+                                pointerStripHeight: 120,
+                                pointerStripColor: '#EF4444',
+                                pointerStripWidth: 2,
+                                pointerColor: '#EF4444',
+                                radius: 6,
+                                pointerLabelWidth: 80,
+                                pointerLabelHeight: 60,
+                                activatePointersOnLongPress: true,
+                                autoAdjustPointerLabelPosition: true,
+                                pointerLabelComponent: (items: any) => {
+                                    return (
+                                        <View style={{height: 60, width: 80, justifyContent: 'center', backgroundColor: '#374151', borderRadius: 8, padding: 4}}>
+                                            <Text style={{color: 'white', fontSize: 10, textAlign:'center'}}>
+                                                {items[0].label}
+                                            </Text>
+                                            <Text style={{fontWeight: 'bold', color: '#FECACA', fontSize: 13, textAlign:'center'}}>
+                                                {items[0].value} BPM
+                                            </Text>
+                                        </View>
+                                    );
+                                },
+                            }}
                         />
                     ) : (
                         <Text style={styles.emptyText}>Sin datos</Text>

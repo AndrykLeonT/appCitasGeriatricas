@@ -1,410 +1,194 @@
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import BouncyCheckbox from "react-native-bouncy-checkbox";
+import { useLocalSearchParams } from 'expo-router';
+import React, { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import BouncyCheckbox from 'react-native-bouncy-checkbox';
+import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 
-type KatzAnswers = {
-  bath: "si" | "no" | null;
-  dress: "si" | "no" | null;
-  toilet: "si" | "no" | null;
-  transfer: "si" | "no" | null;
-  continence: "si" | "no" | null;
-  feeding: "si" | "no" | null;
-};
+type KatzKey = 'bath' | 'dress' | 'toilet' | 'transfer' | 'continence' | 'feeding';
+type KatzAnswers = { [key in KatzKey]: 'si' | 'no' | null };
+
+const PREGUNTAS: { key: KatzKey; titulo: string; descripcion: string }[] = [
+  {
+    key: 'bath',
+    titulo: '1) Baño (Esponja, regadera o tina).',
+    descripcion:
+      'Sí: No recibe asistencia (puede entrar y salir de la tina u otra forma de baño).\n' +
+      'Sí: Que reciba asistencia durante el baño en una sola parte del cuerpo (ej. espalda o pierna).\n' +
+      'No: Que reciba asistencia durante el baño en más de una parte.',
+  },
+  {
+    key: 'dress',
+    titulo: '2) Vestido.',
+    descripcion:
+      'Sí: Que pueda tomar las prendas y vestirse completamente, sin asistencia.\n' +
+      'Sí: Que pueda tomar las prendas y vestirse sin asistencia excepto en abrocharse los zapatos.\n' +
+      'No: Que reciba asistencia para tomar las prendas y vestirse.',
+  },
+  {
+    key: 'toilet',
+    titulo: '3) Uso del Sanitario.',
+    descripcion:
+      'Sí: Sin ninguna asistencia (puede utilizar algún objeto de soporte como bastón o silla de ruedas).\n' +
+      'Sí: Que reciba asistencia al ir al baño, en limpiarse y que pueda manejar por sí mismo el pañal.\n' +
+      'No: Que no vaya al baño por sí mismo/a.',
+  },
+  {
+    key: 'transfer',
+    titulo: '4) Transferencias.',
+    descripcion:
+      'Sí: Que se mueva dentro y fuera de la cama y silla sin ninguna asistencia.\n' +
+      'Sí: Que pueda moverse dentro y fuera de la cama y silla con asistencia.\n' +
+      'No: Que no pueda salir de la cama.',
+  },
+  {
+    key: 'continence',
+    titulo: '5) Continencia.',
+    descripcion:
+      'Sí: Control total de esfínteres.\n' +
+      'Sí: Que tenga accidentes ocasionales que no afectan su vida social.\n' +
+      'No: Necesita ayuda para supervisión de control de esfínteres, utiliza sonda o es incontinente.',
+  },
+  {
+    key: 'feeding',
+    titulo: '6) Alimentación.',
+    descripcion:
+      'Sí: Que se alimente por sí solo sin asistencia alguna.\n' +
+      'Sí: Que se alimente solo y que tenga asistencia sólo para cortar la carne o untar mantequilla.\n' +
+      'No: Que reciba asistencia en la alimentación o que se alimente por vía enteral o parenteral.',
+  },
+];
 
 export default function KatzIndex() {
-  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+  }>();
+
   const [answers, setAnswers] = useState<KatzAnswers>({
-    bath: null,
-    dress: null,
-    toilet: null,
-    transfer: null,
-    continence: null,
-    feeding: null,
+    bath: null, dress: null, toilet: null,
+    transfer: null, continence: null, feeding: null,
   });
+  const [guardado, setGuardado] = useState(false);
+
+  const setAnswer = (key: KatzKey, value: 'si' | 'no') => {
+    setAnswers(prev => ({ ...prev, [key]: prev[key] === value ? null : value }));
+  };
+
+  const handleGuardar = async () => {
+    if (guardado) return;
+    const puntaje = Object.values(answers).filter(v => v === 'si').length;
+    const interpretacion = puntaje >= 6 ? 'Independiente' : puntaje >= 4 ? 'Dependencia leve' : 'Dependencia severa';
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: '07_katz',
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje,
+      });
+      setGuardado(true);
+      Alert.alert(
+        'Evaluación guardada',
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje}/6\n${interpretacion}`
+      );
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');
+    }
+  };
+
   return (
-    <ScrollView
-      contentContainerStyle={{
-        padding: 20,
-        backgroundColor: "#fff",
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: "Signika_700Bold",
-          fontSize: 22,
-          marginBottom: 20,
-          textAlign: "center",
-        }}
-      >
-        Indice de Katz
-      </Text>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.titulo}>Índice de Katz</Text>
 
-      {/* First Question */}
-      <View>
-        <Text style={{ fontFamily: "Signika_700Bold", fontSize: 18 }}>
-          1) Baño (Esponja, regadera o tina).
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 5,
-          }}
-        >
-          <View style={{ flex: 3, paddingRight: 10 }}>
-            <Text style={{ fontFamily: "Signika_400Regular" }}>
-              Sí: No recibe asistencia (puede entra y salir de la tina u otra
-              forma de baño).{"\n"}
-              Sí: Que reciba asistencia durante el baño en una sola parte del
-              cuerpo (ej. espalda o pierna).{"\n"}
-              No: Que reciba asistencia durante el baño en más de una parte.
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 100,
-              flexDirection: "row",
-              justifyContent: "space-evenly",
-              alignItems: "center",
-            }}
-          >
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>Sí</Text>
-              <BouncyCheckbox
-                isChecked={answers.bath === "si"}
-                onPress={() => setAnswers((prev) => ({ ...prev, bath: "si" }))}
-              />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>No</Text>
-              <BouncyCheckbox
-                isChecked={answers.bath === "no"}
-                onPress={() => setAnswers((prev) => ({ ...prev, bath: "no" }))}
-              />
-            </View>
-          </View>
+      {pacienteNombre !== '' && (
+        <View style={styles.pacienteBanner}>
+          <Text style={styles.pacienteBannerText}>👤 {pacienteNombre}</Text>
         </View>
-      </View>
+      )}
 
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "#ccc",
-          marginVertical: 15,
-        }}
-      />
-
-      {/* Second Question*/}
-      <View>
-        <Text style={{ fontFamily: "Signika_700Bold", fontSize: 18 }}>
-          2) Vestido.
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 5,
-          }}
-        >
-          <View style={{ flex: 3 }}>
-            <Text style={{ fontFamily: "Signika_400Regular" }}>
-              Sí: Que pueda tomar las prendas y vestirse completamente, sin
-              asistencia.{"\n"}
-              Sí: Que pueda tomar las prendas y vestirse sis asistencia excepto
-              en abrocharse los zapatos.{"\n"}
-              No: Que reciba asistencia para tomar las prendas y vestirse.
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 100,
-              flexDirection: "row",
-              justifyContent: "space-evenly",
-              alignItems: "center",
-            }}
-          >
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>Sí</Text>
-              <BouncyCheckbox
-                isChecked={answers.dress === "si"}
-                onPress={() => setAnswers((prev) => ({ ...prev, dress: "si" }))}
-              />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>No</Text>
-              <BouncyCheckbox
-                isChecked={answers.dress === "no"}
-                onPress={() => setAnswers((prev) => ({ ...prev, dress: "no" }))}
-              />
+      {PREGUNTAS.map((p, i) => (
+        <View key={p.key}>
+          <Text style={styles.preguntaTitulo}>{p.titulo}</Text>
+          <View style={styles.row}>
+            <Text style={styles.descripcion}>{p.descripcion}</Text>
+            <View style={styles.checkboxRow}>
+              <View style={styles.checkboxItem}>
+                <Text style={styles.checkLabel}>Sí</Text>
+                <BouncyCheckbox
+                  isChecked={answers[p.key] === 'si'}
+                  onPress={() => setAnswer(p.key, 'si')}
+                  fillColor="#3B82F6"
+                  size={24}
+                />
+              </View>
+              <View style={styles.checkboxItem}>
+                <Text style={styles.checkLabel}>No</Text>
+                <BouncyCheckbox
+                  isChecked={answers[p.key] === 'no'}
+                  onPress={() => setAnswer(p.key, 'no')}
+                  fillColor="#EF4444"
+                  size={24}
+                />
+              </View>
             </View>
           </View>
+          {i < PREGUNTAS.length - 1 && <View style={styles.separador} />}
         </View>
-      </View>
+      ))}
 
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "#ccc",
-          marginVertical: 15,
-        }}
-      />
-
-      {/* Third Question*/}
-      <View>
-        <Text style={{ fontFamily: "Signika_700Bold", fontSize: 18 }}>
-          3) Uso del Sanitario.
+      <View style={styles.puntajeBox}>
+        <Text style={styles.puntajeText}>
+          Respuestas Sí: {Object.values(answers).filter(v => v === 'si').length} / 6
         </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 5,
-          }}
-        >
-          <View style={{ flex: 3 }}>
-            <Text style={{ fontFamily: "Signika_400Regular" }}>
-              Sí: Sin ninguna asistencia (puede utilizar algún objeto de soporte
-              como bastón o silla de ruedas y/o que pueda arreglar su ropa o el
-              uso de pañal i cómodo).{"\n"}
-              Sí: Que reciba asistencia al ir al baño, en limpiarse y que pueda
-              manejar por si mismo/a el pañal o cómodo vaciándolo{"\n"}
-              No: Que no vaya al baño por si mismo/a.
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 100,
-              flexDirection: "row",
-              justifyContent: "space-evenly",
-              alignItems: "center",
-            }}
-          >
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>Sí</Text>
-              <BouncyCheckbox
-                isChecked={answers.toilet === "si"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, toilet: "si" }))
-                }
-              />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>No</Text>
-              <BouncyCheckbox
-                isChecked={answers.toilet === "no"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, toilet: "no" }))
-                }
-              />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "#ccc",
-          marginVertical: 15,
-        }}
-      />
-
-      {/* Fourth Question*/}
-      <View>
-        <Text style={{ fontFamily: "Signika_700Bold", fontSize: 18 }}>
-          4) Transferencias.
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 5,
-          }}
-        >
-          <View style={{ flex: 3 }}>
-            <Text style={{ fontFamily: "Signika_400Regular" }}>
-              Sí: Que se mueva dentro y fuera de la cama y silla sin ninguna
-              asistencia (puede estar utilizando un auxiliar de la marcha u
-              objeto de soporte).{"\n"}
-              Sí: Que pueva moverse dentro y fuera de la cama y silla con
-              asistencia.{"\n"}
-              No: Que no pueda salir de la cama.
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 100,
-              flexDirection: "row",
-              justifyContent: "space-evenly",
-              alignItems: "center",
-            }}
-          >
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>Sí</Text>
-              <BouncyCheckbox
-                isChecked={answers.transfer === "si"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, transfer: "si" }))
-                }
-              />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>No</Text>
-              <BouncyCheckbox
-                isChecked={answers.transfer === "no"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, transfer: "no" }))
-                }
-              />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "#ccc",
-          marginVertical: 15,
-        }}
-      />
-
-      {/* Fifth Question*/}
-      <View>
-        <Text style={{ fontFamily: "Signika_700Bold", fontSize: 18 }}>
-          5) Continencia.
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 5,
-          }}
-        >
-          <View style={{ flex: 3 }}>
-            <Text style={{ fontFamily: "Signika_400Regular" }}>
-              Sí: Control total de esfínteres.{"\n"}
-              Sí: Que tenga accidentes ocasionales que no afectan su vida
-              social.{"\n"}
-              No: Necesita ayuda para supervición de control de esfínteres,
-              utiliza sonda o es incontinente.
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 100,
-              flexDirection: "row",
-              justifyContent: "space-evenly",
-              alignItems: "center",
-            }}
-          >
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>Sí</Text>
-              <BouncyCheckbox
-                isChecked={answers.continence === "si"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, continence: "si" }))
-                }
-              />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>No</Text>
-              <BouncyCheckbox
-                isChecked={answers.continence === "no"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, continence: "no" }))
-                }
-              />
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "#ccc",
-          marginVertical: 15,
-        }}
-      />
-
-      {/* Sixth Question*/}
-      <View>
-        <Text style={{ fontFamily: "Signika_700Bold", fontSize: 18 }}>
-          6) Alimentación.
-        </Text>
-        <View
-          style={{
-            flexDirection: "row",
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 5,
-          }}
-        >
-          <View style={{ flex: 3 }}>
-            <Text style={{ fontFamily: "Signika_400Regular" }}>
-              Sí: Que se alimente por si solo sin asistencia alguna.{"\n"}
-              Sí: Que se alimente solo y que tenga asistencia sólo para cortar
-              la carne o untar mantequilla.{"\n"}
-              No: Que reciba asistencia en la alimentación o que se alimente
-              parcial o totalmente por vía enteral o parenteral.
-            </Text>
-          </View>
-          <View
-            style={{
-              width: 100,
-              flexDirection: "row",
-              justifyContent: "space-evenly",
-              alignItems: "center",
-            }}
-          >
-            <View style={{ alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>Sí</Text>
-              <BouncyCheckbox
-                isChecked={answers.feeding === "si"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, feeding: "si" }))
-                }
-              />
-            </View>
-            <View style={{ alignItems: "center" }}>
-              <Text style={{ marginBottom: 4, marginRight: 14 }}>No</Text>
-              <BouncyCheckbox
-                isChecked={answers.feeding === "no"}
-                onPress={() =>
-                  setAnswers((prev) => ({ ...prev, feeding: "no" }))
-                }
-              />
-            </View>
-          </View>
-        </View>
       </View>
 
       <Pressable
-        onPress={() => router.replace("/")}
-        style={{
-          backgroundColor: "#e1a9ff",
-          padding: 15,
-          borderRadius: 10,
-          marginTop: 20,
-        }}
+        style={({ pressed }) => [styles.btnGuardar, guardado && styles.btnGuardado, pressed && { opacity: 0.8 }]}
+        onPress={handleGuardar}
+        disabled={guardado}
       >
-        <Text
-          style={{
-            fontFamily: "Signika_700Bold",
-            textAlign: "center",
-            fontSize: 16,
-          }}
-        >
-          Guardar Prueba
-        </Text>
+        <Text style={styles.btnGuardarText}>{guardado ? '✓ Evaluación guardada' : 'Guardar evaluación'}</Text>
       </Pressable>
+      <View style={{ height: 30 }} />
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { padding: 20, backgroundColor: '#fff' },
+  titulo: { fontSize: 22, fontWeight: 'bold', marginBottom: 16, textAlign: 'center', color: '#1F2937' },
+  pacienteBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  pacienteBannerText: { fontSize: 14, fontWeight: '700', color: '#1E40AF', textAlign: 'center' },
+  preguntaTitulo: { fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#1F2937' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  descripcion: { fontSize: 14, flex: 1, color: '#4B5563', lineHeight: 20 },
+  checkboxRow: { flexDirection: 'row', marginLeft: 10 },
+  checkboxItem: { alignItems: 'center', marginLeft: 10, width: 40 },
+  checkLabel: { marginBottom: 4, fontSize: 13, color: '#374151' },
+  separador: { borderBottomWidth: 1, borderBottomColor: '#E5E7EB', marginVertical: 16 },
+  puntajeBox: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  puntajeText: { fontSize: 18, fontWeight: '700', color: '#0369A1' },
+  btnGuardar: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  btnGuardado: { backgroundColor: '#10B981' },
+  btnGuardarText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+});

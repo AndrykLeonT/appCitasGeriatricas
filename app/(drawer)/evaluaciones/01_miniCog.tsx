@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import React, { useEffect, useState } from "react";
 import {
@@ -11,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { guardarRegistroEvaluacion } from "../../../services/firebaseEvaluaciones";
 
 type AttemptKey = "palabra1" | "palabra2" | "palabra3" | "dibujoReloj";
 type Attempts = {
@@ -18,6 +20,11 @@ type Attempts = {
 };
 
 const MiniCogScreen = () => {
+  const { pacienteId = "", pacienteNombre = "" } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+  }>();
+
   const [palabra1, setPalabra1] = useState("");
   const [palabra2, setPalabra2] = useState("");
   const [palabra3, setPalabra3] = useState("");
@@ -57,9 +64,24 @@ const MiniCogScreen = () => {
     return puntos;
   };
 
-  const handleEnviar = () => {
-    setResultado("Enviado");
-    Alert.alert("Resultado", "Evaluación enviada correctamente");
+  const handleEnviar = async () => {
+    const puntos = calcularPuntos();
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: "01_mini_cog",
+        fecha: new Date().toISOString().split("T")[0],
+        puntaje: puntos,
+      });
+      const interpretacion = puntos <= 2 ? "Riesgo de demencia" : "Sin riesgo significativo";
+      setResultado(`Puntaje: ${puntos}/5 — Guardado`);
+      Alert.alert(
+        "Evaluación guardada",
+        `Paciente: ${pacienteNombre}\nPuntaje: ${puntos}/5\nInterpretación: ${interpretacion}`
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo guardar la evaluación. Verifique su conexión.");
+    }
   };
 
   const handleGuardarDibujo = () => {
@@ -77,6 +99,11 @@ const MiniCogScreen = () => {
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Text style={styles.titulo}>Mini-Cog</Text>
+          {pacienteNombre !== "" && (
+            <View style={styles.pacienteBanner}>
+              <Text style={styles.pacienteBannerText}>👤 {pacienteNombre}</Text>
+            </View>
+          )}
           <Text style={styles.subtitulo}>
             Diga 3 palabras y dibuje un reloj
           </Text>
@@ -197,6 +224,20 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
     color: "#333",
+  },
+  pacienteBanner: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  pacienteBannerText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1E40AF",
+    textAlign: "center",
   },
   sectionTitle: {
     fontSize: 18,

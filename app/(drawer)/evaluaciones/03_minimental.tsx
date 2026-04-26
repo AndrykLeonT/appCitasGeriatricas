@@ -1,10 +1,10 @@
-import { CustomDatePicker } from "@/components/ui/datePicker";
-import { FormDropdown } from "@/components/ui/dropDown";
 import { FormField } from "@/components/ui/formField";
 import { FormSection } from "@/components/ui/formSection";
+import { useLocalSearchParams } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
+import { guardarRegistroEvaluacion } from "../../../services/firebaseEvaluaciones";
 import {
   Image,
   Platform,
@@ -189,31 +189,24 @@ export default function PruebaMiniMental() {
       [palabra]: !prev[palabra],
     }));
   };
-  const [fechaNacimiento, setFechaNacimiento] = useState(new Date());
-  const [sexo, setSexo] = useState("");
-  const [discapacidades, setDiscapacidades] = React.useState({
-    visual: false,
-    auditiva: false,
-    motriz: false,
-    ninguna: true,
-  });
+  const { pacienteId = "", pacienteNombre = "" } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+  }>();
+  const [guardando, setGuardando] = useState(false);
 
   const [formKey, setFormKey] = useState(0);
 
   const clearForm = useCallback(() => {
-    setFechaNacimiento(new Date());
-    setSexo("");
-    setDiscapacidades({
-      visual: false,
-      auditiva: false,
-      motriz: false,
-      ninguna: true,
-    });
+    setEscolaridad(null);
     setRespuestas({});
-
+    setPalabrasMemoria({ casa: false, arbol: false, perro: false });
+    setAcciones({ tomarDerecha: false, doblar: false, tirar: false });
+    setNumRes({ 93: false, 86: false, 79: false, 72: false, 65: false });
+    setPalabrasRecuerdo({ casa: false, arbol: false, perro: false });
     setFormKey((prevKey) => prevKey + 1);
     console.log("Shaked");
-  }, [formKey]);
+  }, []);
 
   useEffect(() => {
     let subscription: any;
@@ -268,11 +261,6 @@ export default function PruebaMiniMental() {
   const { width } = useWindowDimensions();
   const isMobile = width < 600;
 
-  const dynamicRowStyle = [
-    styles.row,
-    { flexDirection: isMobile ? "column" : ("row" as "column" | "row") },
-  ];
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -315,78 +303,33 @@ export default function PruebaMiniMental() {
             <Text style={styles.subtitle}>
               Pruebas sobre deterioro cognitivo leve
             </Text>
+            {pacienteNombre !== "" && (
+              <Text style={[styles.subtitle, { color: "#1E40AF", fontWeight: "700", marginTop: 4 }]}>
+                👤 {pacienteNombre}
+              </Text>
+            )}
           </View>
         </View>
 
         <View key={`form-container-${formKey}`}>
-          <FormSection
-            title="Datos Personales del Paciente"
-            subtitle="Información básica del paciente geriátrico"
-          >
-            <View style={dynamicRowStyle}>
-              <FormField label="Nombre *" placeholder="Ej. Juan" />
-            </View>
-
-            <View style={dynamicRowStyle}>
-              <FormField label="Apellido 1 *" placeholder="Ej. García" />
-              <FormField label="Apellido 2 *" placeholder="Ej. López" />
-            </View>
-
-            <CustomDatePicker
-              label="Fecha de Aplicación de la Prueba *"
-              value={fechaNacimiento}
-              onChange={setFechaNacimiento}
-            />
-
-            <View
-              style={[
-                styles.row,
-                { flexDirection: isMobile ? "column" : "row" },
-              ]}
-            >
-              <View style={{ flex: isMobile ? 1 : 0.4 }}>
-                <FormDropdown
-                  label="Sexo *"
-                  placeholder="Seleccionar"
-                  data={[
-                    { label: "Masculino", value: "M" },
-                    { label: "Femenino", value: "F" },
-                    { label: "Prefiero no decirlo", value: "P" },
-                  ]}
-                  value={sexo}
-                  onChange={setSexo}
-                />
-              </View>
-              <View style={{ flex: isMobile ? 1 : 0.6 }}>
-                <FormField
-                  label="Años de Escolaridad"
-                  placeholder="Ej. 6"
-                  keyboardType="numeric"
-                  value={escolaridad !== null ? String(escolaridad) : ""}
-                  onChangeText={(text) => {
-                    if (text === "") {
-                      setEscolaridad(null);
-                    } else {
-                      const num = parseInt(text, 10);
-                      setEscolaridad(num);
-
-                      if (num < 3) {
-                        setNumRes({
-                          93: false,
-                          86: false,
-                          79: false,
-                          72: false,
-                          65: false,
-                        });
-                      }
-                    }
-                  }}
-                />
-              </View>
-            </View>
-          </FormSection>
-
           <FormSection title="Preparación" subtitle=" ">
+            <FormField
+              label="Años de Escolaridad"
+              placeholder="Ej. 6"
+              keyboardType="numeric"
+              value={escolaridad !== null ? String(escolaridad) : ""}
+              onChangeText={(text) => {
+                if (text === "") {
+                  setEscolaridad(null);
+                } else {
+                  const num = parseInt(text, 10);
+                  setEscolaridad(num);
+                  if (num < 3) {
+                    setNumRes({ 93: false, 86: false, 79: false, 72: false, 65: false });
+                  }
+                }
+              }}
+            />
             <View style={styles.verticalGroup}>
               <View style={styles.instructionBox}>
                 <Text style={styles.instructionText}>
@@ -791,20 +734,37 @@ export default function PruebaMiniMental() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.btnSubmit, isMobile && { width: "100%" }]}
-            onPress={() => {
-              const resultado = puntaje >= 24
-                ? "Resultado normal"
-                : puntaje >= 19
+            style={[styles.btnSubmit, isMobile && { width: "100%" }, guardando && { opacity: 0.6 }]}
+            disabled={guardando}
+            onPress={async () => {
+              const resultado =
+                puntaje >= 24
+                  ? "Resultado normal"
+                  : puntaje >= 19
                   ? "Resultado ligeramente alterado"
                   : "Resultado alterado";
-              Alert.alert(
-                "Resultado de Evaluación",
-                `Puntaje: ${puntaje}\nInterpretación: ${resultado}`
-              );
+              setGuardando(true);
+              try {
+                await guardarRegistroEvaluacion({
+                  idPaciente: pacienteId,
+                  idEvaluacion: "03_mini_mental",
+                  fecha: new Date().toISOString().split("T")[0],
+                  puntaje,
+                });
+                Alert.alert(
+                  "Evaluación guardada",
+                  `Paciente: ${pacienteNombre}\nPuntaje: ${puntaje}/28\nInterpretación: ${resultado}`
+                );
+              } catch {
+                Alert.alert("Error", "No se pudo guardar la evaluación. Verifique su conexión.");
+              } finally {
+                setGuardando(false);
+              }
             }}
           >
-            <Text style={styles.btnTextSubmit}>Registrar Puntuaciones</Text>
+            <Text style={styles.btnTextSubmit}>
+              {guardando ? "Guardando..." : "Registrar Puntuaciones"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

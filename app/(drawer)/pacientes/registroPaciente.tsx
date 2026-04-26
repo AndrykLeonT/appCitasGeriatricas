@@ -1,8 +1,11 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,12 +16,33 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { createPatientInFirebase, readPatientsFromFirebase, updatePatientInFirebase } from "../../../services/firebasePatients";
 
+const SEXO_OPTIONS = ["", "Hombre", "Mujer", "Prefiero no especificar"];
+const ESTADO_CIVIL_OPTIONS = ["", "Soltero/a", "Casado/a", "Viudo/a", "Prefiero no especificar"];
+const ESCOLARIDAD_OPTIONS = [
+    "", "Ninguno", "Preescolar", "Primaria", "Secundaria",
+    "Preparatoria", "Universidad", "Maestría", "Doctorado",
+];
+
+const parseDateString = (str: string): Date => {
+    if (!str) return new Date();
+    const [day, month, year] = str.split('/');
+    if (!day || !month || !year || isNaN(Number(year))) return new Date();
+    return new Date(Number(year), Number(month) - 1, Number(day));
+};
+
+const formatDate = (date: Date): string => {
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${d}/${m}/${date.getFullYear()}`;
+};
+
 export default function RegistroPaciente() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id?: string }>();
 
     const [loading, setLoading] = useState(false);
     const [initialFetchLoading, setInitialFetchLoading] = useState(!!id);
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     const [formData, setFormData] = useState({
         nombre: "",
@@ -56,7 +80,7 @@ export default function RegistroPaciente() {
                         Alert.alert("Error", "Paciente no encontrado");
                         router.back();
                     }
-                } catch (error) {
+                } catch {
                     Alert.alert("Error", "No se pudieron cargar los datos del paciente");
                 } finally {
                     setInitialFetchLoading(false);
@@ -70,12 +94,16 @@ export default function RegistroPaciente() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
+    const handleDateChange = (_event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') setShowDatePicker(false);
+        if (selectedDate) handleChange('fechaNacimiento', formatDate(selectedDate));
+    };
+
     const handleGuardar = async () => {
         if (!formData.nombre || !formData.apellidos) {
             Alert.alert("Campos requeridos", "Por favor ingresa al menos nombre y apellidos.");
             return;
         }
-
         setLoading(true);
         try {
             if (id) {
@@ -85,7 +113,6 @@ export default function RegistroPaciente() {
                 await createPatientInFirebase(formData);
                 Alert.alert("Éxito", "Paciente registrado exitosamente.");
             }
-
             setFormData({
                 nombre: "", apellidos: "", edad: "", sexo: "", fechaNacimiento: "",
                 estadoCivil: "", ocupacion: "", escolaridad: "", telefono: "",
@@ -94,10 +121,8 @@ export default function RegistroPaciente() {
                 medicamentosActuales: "", peso: "", talla: "",
             });
             router.back();
-
-        } catch (error) {
+        } catch {
             Alert.alert("Error", "Hubo un problema al guardar los datos del paciente. Inténtalo de nuevo.");
-            console.error(error);
         } finally {
             setLoading(false);
         }
@@ -121,109 +146,255 @@ export default function RegistroPaciente() {
                     <Text style={styles.title}>{id ? "Editar Paciente" : "Registro de Paciente"}</Text>
                     <Text style={styles.subtitle}>Complete la información requerida clínica y personal.</Text>
 
+                    {/* ── Datos Personales ── */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Datos Personales</Text>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Nombre(s)</Text>
-                            <TextInput style={styles.input} value={formData.nombre} onChangeText={(text) => handleChange("nombre", text)} />
+                            <TextInput
+                                style={styles.input}
+                                value={formData.nombre}
+                                onChangeText={(t) => handleChange("nombre", t)}
+                            />
                         </View>
+
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Apellidos</Text>
-                            <TextInput style={styles.input} value={formData.apellidos} onChangeText={(text) => handleChange("apellidos", text)} />
+                            <TextInput
+                                style={styles.input}
+                                value={formData.apellidos}
+                                onChangeText={(t) => handleChange("apellidos", t)}
+                            />
                         </View>
+
+                        {/* Edad + Sexo */}
                         <View style={styles.row}>
                             <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.label}>Edad</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={formData.edad} onChangeText={(text) => handleChange("edad", text)} />
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="numeric"
+                                    value={formData.edad}
+                                    onChangeText={(t) => handleChange("edad", t)}
+                                />
                             </View>
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Sexo</Text>
-                                <TextInput style={styles.input} value={formData.sexo} onChangeText={(text) => handleChange("sexo", text)} />
+                                <View style={styles.pickerWrapper}>
+                                    <Picker
+                                        selectedValue={formData.sexo}
+                                        onValueChange={(v) => handleChange("sexo", v)}
+                                        style={styles.picker}
+                                    >
+                                        {SEXO_OPTIONS.map((o) => (
+                                            <Picker.Item
+                                                key={o}
+                                                label={o === "" ? "Seleccionar..." : o}
+                                                value={o}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
                             </View>
                         </View>
+
+                        {/* Fecha de Nacimiento + Estado Civil */}
                         <View style={styles.row}>
                             <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.label}>Fecha de Nacimiento</Text>
-                                <TextInput style={styles.input} placeholder="DD/MM/AAAA" value={formData.fechaNacimiento} onChangeText={(text) => handleChange("fechaNacimiento", text)} />
+                                <TouchableOpacity
+                                    style={styles.dateButton}
+                                    onPress={() => setShowDatePicker(true)}
+                                >
+                                    <Text style={[
+                                        styles.dateButtonText,
+                                        !formData.fechaNacimiento && styles.datePlaceholder,
+                                    ]}>
+                                        {formData.fechaNacimiento || "DD/MM/AAAA"}
+                                    </Text>
+                                </TouchableOpacity>
+                                {showDatePicker && (
+                                    <DateTimePicker
+                                        value={parseDateString(formData.fechaNacimiento)}
+                                        mode="date"
+                                        display="default"
+                                        onChange={handleDateChange}
+                                        maximumDate={new Date()}
+                                    />
+                                )}
                             </View>
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Estado Civil</Text>
-                                <TextInput style={styles.input} value={formData.estadoCivil} onChangeText={(text) => handleChange("estadoCivil", text)} />
+                                <View style={styles.pickerWrapper}>
+                                    <Picker
+                                        selectedValue={formData.estadoCivil}
+                                        onValueChange={(v) => handleChange("estadoCivil", v)}
+                                        style={styles.picker}
+                                    >
+                                        {ESTADO_CIVIL_OPTIONS.map((o) => (
+                                            <Picker.Item
+                                                key={o}
+                                                label={o === "" ? "Seleccionar..." : o}
+                                                value={o}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
                             </View>
                         </View>
+
+                        {/* Ocupación + Escolaridad */}
                         <View style={styles.row}>
                             <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.label}>Ocupación</Text>
-                                <TextInput style={styles.input} value={formData.ocupacion} onChangeText={(text) => handleChange("ocupacion", text)} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={formData.ocupacion}
+                                    onChangeText={(t) => handleChange("ocupacion", t)}
+                                />
                             </View>
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Escolaridad</Text>
-                                <TextInput style={styles.input} value={formData.escolaridad} onChangeText={(text) => handleChange("escolaridad", text)} />
+                                <View style={styles.pickerWrapper}>
+                                    <Picker
+                                        selectedValue={formData.escolaridad}
+                                        onValueChange={(v) => handleChange("escolaridad", v)}
+                                        style={styles.picker}
+                                    >
+                                        {ESCOLARIDAD_OPTIONS.map((o) => (
+                                            <Picker.Item
+                                                key={o}
+                                                label={o === "" ? "Seleccionar..." : o}
+                                                value={o}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
                             </View>
                         </View>
                     </View>
 
+                    {/* ── Datos de Contacto ── */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Datos de Contacto</Text>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Teléfono</Text>
-                            <TextInput style={styles.input} keyboardType="phone-pad" value={formData.telefono} onChangeText={(text) => handleChange("telefono", text)} />
+                            <TextInput
+                                style={styles.input}
+                                keyboardType="phone-pad"
+                                value={formData.telefono}
+                                onChangeText={(t) => handleChange("telefono", t)}
+                            />
                         </View>
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Correo Electrónico</Text>
-                            <TextInput style={styles.input} keyboardType="email-address" autoCapitalize="none" value={formData.correo} onChangeText={(text) => handleChange("correo", text)} />
+                            <TextInput
+                                style={styles.input}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                value={formData.correo}
+                                onChangeText={(t) => handleChange("correo", t)}
+                            />
                         </View>
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Dirección Completa</Text>
-                            <TextInput style={styles.input} value={formData.direccion} onChangeText={(text) => handleChange("direccion", text)} />
+                            <TextInput
+                                style={styles.input}
+                                value={formData.direccion}
+                                onChangeText={(t) => handleChange("direccion", t)}
+                            />
                         </View>
                         <View style={styles.row}>
                             <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.label}>Contacto de Emergencia</Text>
-                                <TextInput style={styles.input} value={formData.contactoEmergencia} onChangeText={(text) => handleChange("contactoEmergencia", text)} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={formData.contactoEmergencia}
+                                    onChangeText={(t) => handleChange("contactoEmergencia", t)}
+                                />
                             </View>
                             <View style={[styles.formGroup, { flex: 1 }]}>
-                                <Text style={styles.label}>Teléfono Especial (Emergencia)</Text>
-                                <TextInput style={styles.input} keyboardType="phone-pad" value={formData.telefonoEmergencia} onChangeText={(text) => handleChange("telefonoEmergencia", text)} />
+                                <Text style={styles.label}>Teléfono Emergencia</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="phone-pad"
+                                    value={formData.telefonoEmergencia}
+                                    onChangeText={(t) => handleChange("telefonoEmergencia", t)}
+                                />
                             </View>
                         </View>
                     </View>
 
+                    {/* ── Datos Médicos ── */}
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Datos Médicos</Text>
 
                         <View style={styles.row}>
                             <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.label}>Tipo de Sangre</Text>
-                                <TextInput style={styles.input} value={formData.tipoSangre} onChangeText={(text) => handleChange("tipoSangre", text)} />
+                                <TextInput
+                                    style={styles.input}
+                                    value={formData.tipoSangre}
+                                    onChangeText={(t) => handleChange("tipoSangre", t)}
+                                />
                             </View>
                             <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
                                 <Text style={styles.label}>Peso (kg)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={formData.peso} onChangeText={(text) => handleChange("peso", text)} />
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="numeric"
+                                    value={formData.peso}
+                                    onChangeText={(t) => handleChange("peso", t)}
+                                />
                             </View>
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Talla (cm)</Text>
-                                <TextInput style={styles.input} keyboardType="numeric" value={formData.talla} onChangeText={(text) => handleChange("talla", text)} />
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="numeric"
+                                    value={formData.talla}
+                                    onChangeText={(t) => handleChange("talla", t)}
+                                />
                             </View>
                         </View>
 
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Alergias</Text>
-                            <TextInput style={[styles.input, styles.textArea]} multiline value={formData.alergias} onChangeText={(text) => handleChange("alergias", text)} />
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                multiline
+                                value={formData.alergias}
+                                onChangeText={(t) => handleChange("alergias", t)}
+                            />
                         </View>
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Enfermedades Crónicas</Text>
-                            <TextInput style={[styles.input, styles.textArea]} multiline value={formData.enfermedadesCronicas} onChangeText={(text) => handleChange("enfermedadesCronicas", text)} />
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                multiline
+                                value={formData.enfermedadesCronicas}
+                                onChangeText={(t) => handleChange("enfermedadesCronicas", t)}
+                            />
                         </View>
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Cirugías Previas</Text>
-                            <TextInput style={[styles.input, styles.textArea]} multiline value={formData.cirugiasPrevias} onChangeText={(text) => handleChange("cirugiasPrevias", text)} />
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                multiline
+                                value={formData.cirugiasPrevias}
+                                onChangeText={(t) => handleChange("cirugiasPrevias", t)}
+                            />
                         </View>
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Medicamentos Actuales</Text>
-                            <TextInput style={[styles.input, styles.textArea]} multiline value={formData.medicamentosActuales} onChangeText={(text) => handleChange("medicamentosActuales", text)} />
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                multiline
+                                value={formData.medicamentosActuales}
+                                onChangeText={(t) => handleChange("medicamentosActuales", t)}
+                            />
                         </View>
                     </View>
 
@@ -297,6 +468,32 @@ const styles = StyleSheet.create({
     textArea: {
         height: 80,
         textAlignVertical: "top",
+    },
+    pickerWrapper: {
+        borderWidth: 1,
+        borderColor: "#d1d5db",
+        borderRadius: 6,
+        backgroundColor: "#ffffff",
+        overflow: "hidden",
+    },
+    picker: {
+        height: 44,
+    },
+    dateButton: {
+        backgroundColor: "#ffffff",
+        borderWidth: 1,
+        borderColor: "#d1d5db",
+        borderRadius: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 11,
+        justifyContent: "center",
+    },
+    dateButtonText: {
+        fontSize: 15,
+        color: "#374151",
+    },
+    datePlaceholder: {
+        color: "#9ca3af",
     },
     btnGuardar: {
         backgroundColor: "#10B981",

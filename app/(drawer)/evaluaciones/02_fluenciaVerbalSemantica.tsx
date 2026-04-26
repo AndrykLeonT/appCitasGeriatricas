@@ -1,6 +1,8 @@
+import { useLocalSearchParams } from 'expo-router';
 import { Gyroscope } from 'expo-sensors';
 import React, { useEffect, useState } from 'react';
 import {
+    Alert,
     Button,
     ScrollView,
     SectionList,
@@ -9,9 +11,15 @@ import {
     TextInput,
     View
 } from 'react-native';
+import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 
 const FluenciaVerbalAnimales = () => {
     const TIEMPO_TOTAL = 60;
+
+    const { pacienteId = "", pacienteNombre = "" } = useLocalSearchParams<{
+        pacienteId: string;
+        pacienteNombre: string;
+    }>();
 
     const [fase, setFase] = useState<'inicio' | 'instrucciones' | 'prueba' | 'resultados'>('inicio');
     const [segundos, setSegundos] = useState(TIEMPO_TOTAL);
@@ -19,6 +27,7 @@ const FluenciaVerbalAnimales = () => {
     const [animales, setAnimales] = useState<string[]>([]);
     const [timerActivo, setTimerActivo] = useState(false);
     const [ignorarMayusculas] = useState(true);
+    const [guardado, setGuardado] = useState(false);
 
     //Temporizador
     useEffect(() => {
@@ -105,6 +114,26 @@ const FluenciaVerbalAnimales = () => {
         setTexto('');
         setAnimales([]);
         setSegundos(TIEMPO_TOTAL);
+        setGuardado(false);
+    }
+
+    async function guardarResultado() {
+        if (guardado) return;
+        try {
+            await guardarRegistroEvaluacion({
+                idPaciente: pacienteId,
+                idEvaluacion: '02_fluencia_verbal',
+                fecha: new Date().toISOString().split('T')[0],
+                puntaje: animales.length,
+            });
+            setGuardado(true);
+            Alert.alert(
+                'Resultado guardado',
+                `Paciente: ${pacienteNombre}\nAnimales válidos: ${animales.length}`
+            );
+        } catch {
+            Alert.alert('Error', 'No se pudo guardar el resultado. Verifique su conexión.');
+        }
     }
 
     if (fase === 'inicio') {
@@ -211,12 +240,21 @@ const FluenciaVerbalAnimales = () => {
             <View style={styles.container}>
                 <Text style={styles.titulo}>Resultados</Text>
 
+                {pacienteNombre !== '' && (
+                    <View style={styles.pacienteBanner}>
+                        <Text style={styles.pacienteBannerText}>👤 {pacienteNombre}</Text>
+                    </View>
+                )}
+
                 <View style={styles.cajaResultado}>
                     <Text style={styles.total}>
                         {animales.length} animales válidos
                     </Text>
                     <Text style={styles.subtotal}>
                         (en 60 segundos, sin repeticiones)
+                    </Text>
+                    <Text style={styles.subtotal}>
+                        {animales.length >= 10 ? 'Normal' : 'Deterioro cognitivo sugerido'}
                     </Text>
                 </View>
 
@@ -237,6 +275,15 @@ const FluenciaVerbalAnimales = () => {
                 )}
 
                 <View style={styles.botonContenedor}>
+                    <Button
+                        title={guardado ? '✓ Resultado guardado' : 'Guardar resultado'}
+                        onPress={guardarResultado}
+                        color={guardado ? '#27ae60' : '#8e44ad'}
+                        disabled={guardado}
+                    />
+                </View>
+
+                <View style={styles.botonContenedor}>
                     <Button title="Nueva prueba" onPress={reiniciar} color="#2980b9" />
                 </View>
 
@@ -255,6 +302,20 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#f9fbfc',
         padding: 20,
+    },
+    pacienteBanner: {
+        backgroundColor: '#EFF6FF',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#BFDBFE',
+    },
+    pacienteBannerText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#1E40AF',
+        textAlign: 'center',
     },
     titulo: {
         fontSize: 26,

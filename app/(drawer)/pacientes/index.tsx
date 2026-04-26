@@ -110,7 +110,10 @@ export default function PacientesIndex() {
 
     const renderPatientCard = ({ item }: { item: Patient }) => (
         <View style={styles.card}>
-            <View style={styles.cardContent}>
+            <Pressable
+                style={({ pressed }) => [styles.cardContent, pressed && { backgroundColor: "#F0F9FF" }]}
+                onPress={() => router.push({ pathname: "/(drawer)/pacientes/verPaciente", params: { id: item.id } })}
+            >
                 <View style={styles.iconContainer}>
                     <Ionicons name="person-circle" size={50} color="#3B82F6" />
                 </View>
@@ -120,7 +123,8 @@ export default function PacientesIndex() {
                     <Text style={styles.cardText}><Text style={styles.bold}>Teléfono:</Text> {item.telefono}</Text>
                     <Text style={styles.cardText}><Text style={styles.bold}>Tipo de Sangre:</Text> {item.tipoSangre}</Text>
                 </View>
-            </View>
+                <MaterialIcons name="chevron-right" size={24} color="#9CA3AF" style={{ alignSelf: "center" }} />
+            </Pressable>
             <View style={styles.actionsContainer}>
                 <Pressable
                     style={({ pressed }) => [styles.actionButton, styles.vitalSignsButton, pressed && { opacity: 0.7 }]}
@@ -391,6 +395,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         borderWidth: 1,
         borderColor: "#E5E7EB",
+        overflow: "hidden"
     },
     chartTitle: {
         fontSize: 16,
