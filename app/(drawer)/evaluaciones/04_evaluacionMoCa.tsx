@@ -1,10 +1,11 @@
 import { FormField } from '@/components/ui/formField';
 import { FormSection } from '@/components/ui/formSection';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Accelerometer } from 'expo-sensors';
 import { StatusBar } from 'expo-status-bar';
+import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import {
+  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -14,83 +15,49 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 
 export default function EvaluacionMoCaScreen() {
+  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+  }>();
+
   const [isAccelActive, setIsAccelActive] = React.useState(false);
   const [instruccionActual, setInstruccionActual] = React.useState(0);
   const [tiempoInicio, setTiempoInicio] = React.useState(0);
   const [resultadoEjes, setResultadoEjes] = React.useState('');
-
   const [puntos, setPuntos] = React.useState<{ [key: string]: boolean }>({});
   const [puntosResta, setPuntosResta] = React.useState(0);
-
-  const [nombre, setNombre] = React.useState('');
-  const [edad, setEdad] = React.useState('');
-  const [fecha, setFecha] = React.useState('');
-  const [sexo, setSexo] = React.useState('');
   const [escolaridad, setEscolaridad] = React.useState('');
-  const [savedName, setSavedName] = React.useState('');
+  const [guardando, setGuardando] = React.useState(false);
+  const [guardado, setGuardado] = React.useState(false);
 
   const togglePunto = (id: string) => {
     setPuntos(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Cálculo del puntaje total
   const rawScore = Object.entries(puntos).filter(([key, val]) => !key.startsWith('att_calc_') && val).length;
   const escolaridadNum = parseInt(escolaridad) || 0;
-  const adjustment = (escolaridadNum >= 12) ? 1 : 0;
+  const adjustment = escolaridadNum >= 12 ? 1 : 0;
   const totalScore = Math.min(30, rawScore + puntosResta + adjustment);
 
   const getInterpretation = () => {
     if (totalScore >= 26) return { text: 'Se considera normal', color: '#5CB85C' };
     return { text: 'Probable trastorno cognitivo', color: '#D9534F' };
   };
-
   const interpretation = getInterpretation();
-
-  // Guardar datos del paciente
-  const savePatientData = async () => {
-    try {
-      const data = { nombre, edad, fecha, sexo, escolaridad };
-      await AsyncStorage.setItem('patient_data_moca', JSON.stringify(data));
-      setSavedName(nombre);
-      alert('Datos guardados correctamente');
-    } catch (error) {
-      console.error('Error al guardar datos:', error);
-    }
-  };
-
-  // Cargar datos al montar
-  React.useEffect(() => {
-    const loadData = async () => {
-      try {
-        const jsonValue = await AsyncStorage.getItem('patient_data_moca');
-        if (jsonValue != null) {
-          const data = JSON.parse(jsonValue);
-          setNombre(data.nombre || '');
-          setEdad(data.edad || '');
-          setFecha(data.fecha || '');
-          setSexo(data.sexo || '');
-          setEscolaridad(data.escolaridad || '');
-          setSavedName(data.nombre || '');
-        }
-      } catch (error) {
-        console.error('Error al cargar datos:', error);
-      }
-    };
-    loadData();
-  }, []);
 
   React.useEffect(() => {
     let sub: any;
     if (isAccelActive) {
       Accelerometer.setUpdateInterval(200);
       sub = Accelerometer.addListener(data => {
-        if (instruccionActual === 1 && data.x > 0.5) { // Inclinado a la izquierda
+        if (instruccionActual === 1 && data.x > 0.5) {
           setInstruccionActual(2);
-        } else if (instruccionActual === 2 && data.x < -0.5) { // Inclinado a la derecha
+        } else if (instruccionActual === 2 && data.x < -0.5) {
           setInstruccionActual(3);
-        } else if (instruccionActual === 3 && data.z < -0.5) { // Pantalla hacia abajo
+        } else if (instruccionActual === 3 && data.z < -0.5) {
           const tiempo = ((Date.now() - tiempoInicio) / 1000).toFixed(1);
           setResultadoEjes(`Prueba completada correctamente en ${tiempo} segundos`);
           setInstruccionActual(4);
@@ -98,9 +65,7 @@ export default function EvaluacionMoCaScreen() {
         }
       });
     }
-    return () => {
-      if (sub) sub.remove();
-    };
+    return () => { if (sub) sub.remove(); };
   }, [isAccelActive, instruccionActual, tiempoInicio]);
 
   const iniciarPruebaEjes = () => {
@@ -110,7 +75,6 @@ export default function EvaluacionMoCaScreen() {
     setResultadoEjes('');
   };
 
-  // Componente auxiliar para los switches de puntuación
   const ScoreSwitch = ({ label, id }: { label: string; id: string }) => (
     <View style={styles.scoreRow}>
       <Text style={styles.scoreLabel}>{label}</Text>
@@ -138,63 +102,53 @@ export default function EvaluacionMoCaScreen() {
     );
   };
 
+  const handleSubmit = async () => {
+    if (guardando || guardado) return;
+    setGuardando(true);
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: '04_moca',
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje: totalScore,
+      });
+      setGuardado(true);
+      Alert.alert(
+        'Evaluación guardada',
+        `Paciente: ${pacienteNombre}\nPuntaje: ${totalScore}/30\n${interpretation.text}`
+      );
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar la evaluación. Verifique su conexión.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
 
-        {/* HEADER */}
         <View style={{ flex: 1, paddingTop: 50 }}>
-          <Text style={styles.title}>
-            Evaluación MoCA{savedName ? ` - ${savedName}` : ''}
-          </Text>
+          <Text style={styles.title}>Evaluación MoCA</Text>
         </View>
 
-        <FormSection title="Datos del paciente" subtitle='Rellene los datos'>
-          <View style={{ flex: 1 }}>
-            <FormField
-              label="Nombre completo:"
-              placeholder=''
-              value={nombre}
-              onChangeText={setNombre}
-              multiline={true}
-              style={{ height: 80, backgroundColor: '#F1F3F5', color: '#000000', borderRadius: 10, padding: 12, textAlignVertical: 'top' }}
-            />
-
-            <FormField
-              label="Edad:"
-              placeholder=''
-              value={edad}
-              onChangeText={setEdad}
-              keyboardType="numeric"
-              style={{ height: 60, backgroundColor: '#F1F3F5', color: '#000000', borderRadius: 10, padding: 12 }}
-            />
-            <FormField
-              label="Fecha:"
-              placeholder=''
-              value={fecha}
-              onChangeText={setFecha}
-              style={{ height: 60, backgroundColor: '#F1F3F5', color: '#000000', borderRadius: 10, padding: 12 }}
-            />
-            <FormField
-              label="Sexo:"
-              placeholder=''
-              value={sexo}
-              onChangeText={setSexo}
-              style={{ height: 60, backgroundColor: '#F1F3F5', color: '#000000', borderRadius: 10, padding: 12 }}
-            />
-            <FormField
-              label="Años de escolaridad (>= 12 suma 1 punto):"
-              placeholder=''
-              keyboardType="numeric"
-              value={escolaridad}
-              onChangeText={setEscolaridad}
-              style={{ height: 60, backgroundColor: '#F1F3F5', color: '#000000', borderRadius: 10, padding: 12 }}
-            />
-            <TouchableOpacity style={styles.btnAction} onPress={savePatientData}>
-              <Text style={styles.btnTextAction}>Guardar datos</Text>
-            </TouchableOpacity>
+        {/* Banner del paciente */}
+        {pacienteNombre !== '' && (
+          <View style={styles.pacienteBanner}>
+            <Text style={styles.pacienteBannerText}>👤 {pacienteNombre}</Text>
           </View>
+        )}
+
+        <FormSection title="Escolaridad del paciente" subtitle='Necesaria para el cálculo del puntaje'>
+          <FormField
+            label="Años de escolaridad (>= 12 suma 1 punto):"
+            placeholder=''
+            keyboardType="numeric"
+            value={escolaridad}
+            onChangeText={setEscolaridad}
+            style={{ height: 60, backgroundColor: '#F1F3F5', color: '#000000', borderRadius: 10, padding: 12 }}
+          />
         </FormSection>
 
         <FormSection title="Evaluación visuoespacial/ejecutiva" subtitle='Máximo 5 puntos'>
@@ -204,7 +158,6 @@ export default function EvaluacionMoCaScreen() {
               evaluada sigue esta secuencia: 1 - A - 2 - B - 3 - C - 4 - D - 5 - E. Se asigna 0 si la persona no
               corrige inmediatamente un error cualquiera que este sea.</Text>
             <ScoreSwitch label="¿Es correcto?" id="visuo_a" />
-
             <TouchableOpacity style={styles.btnAction} onPress={() => console.log("Dibujo de conectar puntos")}>
               <Text style={styles.btnTextAction}>Subir dibujo</Text>
             </TouchableOpacity>
@@ -236,24 +189,15 @@ export default function EvaluacionMoCaScreen() {
             <Text>Nombre a los animales:</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
               <View style={{ flex: 1 }}>
-                <Image
-                  source={require('@/assets/images/leon.jpg')}
-                  style={{ width: '100%', height: 100, resizeMode: 'contain' }}
-                />
+                <Image source={require('@/assets/images/leon.jpg')} style={{ width: '100%', height: 100, resizeMode: 'contain' }} />
                 <ScoreSwitch label="León" id="nom_lion" />
               </View>
               <View style={{ flex: 1 }}>
-                <Image
-                  source={require('@/assets/images/rinoceronte.jpg')}
-                  style={{ width: '100%', height: 100, resizeMode: 'contain' }}
-                />
+                <Image source={require('@/assets/images/rinoceronte.jpg')} style={{ width: '100%', height: 100, resizeMode: 'contain' }} />
                 <ScoreSwitch label="Rinoceronte" id="nom_rhino" />
               </View>
               <View style={{ flex: 1 }}>
-                <Image
-                  source={require('@/assets/images/camello.jpg')}
-                  style={{ width: '100%', height: 100, resizeMode: 'contain' }}
-                />
+                <Image source={require('@/assets/images/camello.jpg')} style={{ width: '100%', height: 100, resizeMode: 'contain' }} />
                 <ScoreSwitch label="Camello" id="nom_camel" />
               </View>
             </View>
@@ -287,7 +231,6 @@ export default function EvaluacionMoCaScreen() {
             <ScoreSwitch label="Frase 1 correcta" id="lang_rep_1" />
             <Text style={{ marginTop: 5 }}>2. El gato siempre se esconde debajo del sofá...</Text>
             <ScoreSwitch label="Frase 2 correcta" id="lang_rep_2" />
-
             <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Fluidez:</Text>
             <Text>Diga palabras con la letra F (min 11 en 1 min)</Text>
             <ScoreSwitch label="Fluidez correcta (>= 11 palabras)" id="lang_flu" />
@@ -329,13 +272,11 @@ export default function EvaluacionMoCaScreen() {
             <Text style={{ marginBottom: 10, fontSize: 16 }}>
               Pida al paciente que sostenga el dispositivo y que siga las instrucciones.
             </Text>
-
             {instruccionActual === 0 && (
               <TouchableOpacity style={styles.btnAction} onPress={iniciarPruebaEjes}>
                 <Text style={styles.btnTextAction}>Iniciar Prueba</Text>
               </TouchableOpacity>
             )}
-
             {instruccionActual === 4 ? (
               <View>
                 <Text style={{ fontSize: 18, color: '#5CB85C', fontWeight: 'bold', textAlign: 'center', marginVertical: 10 }}>
@@ -366,11 +307,15 @@ export default function EvaluacionMoCaScreen() {
         </FormSection>
 
         <FormSection title="Terminar evaluación" subtitle=''>
-          <View style={{ flex: 1 }}>
-            <TouchableOpacity style={styles.btnSubmit} onPress={() => console.log("Subir formulario completo", { totalScore, puntos, puntosResta })}>
-              <Text style={styles.btnTextSubmit}>Subir formulario</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.btnSubmit, (guardando || guardado) && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={guardando || guardado}
+          >
+            <Text style={styles.btnTextSubmit}>
+              {guardando ? 'Guardando...' : guardado ? '✓ Guardado' : 'Guardar evaluación'}
+            </Text>
+          </TouchableOpacity>
         </FormSection>
 
       </ScrollView>
@@ -382,7 +327,16 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F8F9FA' },
   container: { flex: 1 },
   contentContainer: { paddingHorizontal: 20, paddingBottom: 40 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#001D3D', marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#001D3D', marginBottom: 12 },
+  pacienteBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  pacienteBannerText: { fontSize: 14, fontWeight: '700', color: '#1E40AF', textAlign: 'center' },
   btnSubmit: { backgroundColor: '#000814', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 10, alignItems: 'center', marginTop: 10 },
   btnTextSubmit: { color: '#FFF', fontWeight: '700', fontSize: 16 },
   btnAction: { backgroundColor: '#005f73', paddingVertical: 12, borderRadius: 8, alignItems: 'center', marginTop: 10, marginBottom: 10 },

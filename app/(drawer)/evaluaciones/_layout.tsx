@@ -23,6 +23,7 @@ export default function EvaluacionesLayout() {
             <Stack.Screen name="18_OARSScreen" options={{ title: "OARS" }} />
             <Stack.Screen name="19_EscalaMaltrato" options={{ title: "Escala geriátrica de maltrato" }} />
             <Stack.Screen name="20_Formulario" options={{ title: "Movilidad en el entorno" }} />
+            <Stack.Screen name="historial" options={{ title: "Historial de evaluación" }} />
         </Stack>
     );
 }

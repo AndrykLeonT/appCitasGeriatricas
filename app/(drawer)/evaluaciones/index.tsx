@@ -14,23 +14,23 @@ import {
 import { Patient, readPatientsFromFirebase } from '../../../services/firebasePatients';
 
 const EVALUACIONES = [
-    { label: "01. Mini-Cog™", route: "01_miniCog" },
-    { label: "02. Fluencia verbal semántica", route: "02_fluenciaVerbalSemantica" },
-    { label: "03. Mini-Mental", route: "03_minimental" },
-    { label: "04. MoCA©", route: "04_evaluacionMoCa" },
-    { label: "05. GDS-15", route: "05_formulario" },
-    { label: "06. CESD-7 ítems", route: "06_CESD7Test6" },
-    { label: "07. Índice de Katz", route: "07_KatzIndex" },
-    { label: "08. Índice de Lawton", route: "08_Lawton" },
-    { label: "11. Escala Braden", route: "11_App" },
-    { label: "12. Escala Norton", route: "12_prueba" },
-    { label: "14. Agudeza Visual", route: "14_AgudezaVisual" },
-    { label: "15. MNA-SF", route: "15_MNA-SF" },
-    { label: "16. MUST", route: "16_MUST" },
-    { label: "17. SARC-F", route: "17_SARC-F" },
-    { label: "18. OARS", route: "18_OARSScreen" },
-    { label: "19. Escala geriátrica de maltrato", route: "19_EscalaMaltrato" },
-    { label: "20. Movilidad en el entorno", route: "20_Formulario" },
+    { label: "01. Mini-Cog™", route: "01_miniCog", idEvaluacion: "01_mini_cog" },
+    { label: "02. Fluencia verbal semántica", route: "02_fluenciaVerbalSemantica", idEvaluacion: "02_fluencia_verbal" },
+    { label: "03. Mini-Mental", route: "03_minimental", idEvaluacion: "03_mini_mental" },
+    { label: "04. MoCA©", route: "04_evaluacionMoCa", idEvaluacion: "04_moca" },
+    { label: "05. GDS-15", route: "05_formulario", idEvaluacion: "05_gds15" },
+    { label: "06. CESD-7 ítems", route: "06_CESD7Test6", idEvaluacion: "06_cesd7" },
+    { label: "07. Índice de Katz", route: "07_KatzIndex", idEvaluacion: "07_katz" },
+    { label: "08. Índice de Lawton", route: "08_Lawton", idEvaluacion: "08_lawton" },
+    { label: "11. Escala Braden", route: "11_App", idEvaluacion: "11_braden" },
+    { label: "12. Escala Norton", route: "12_prueba", idEvaluacion: "12_norton" },
+    { label: "14. Agudeza Visual", route: "14_AgudezaVisual", idEvaluacion: "14_agudeza_visual" },
+    { label: "15. MNA-SF", route: "15_MNA-SF", idEvaluacion: "15_mna_sf" },
+    { label: "16. MUST", route: "16_MUST", idEvaluacion: "16_must" },
+    { label: "17. SARC-F", route: "17_SARC-F", idEvaluacion: "17_sarc_f" },
+    { label: "18. OARS", route: "18_OARSScreen", idEvaluacion: "18_oars" },
+    { label: "19. Escala geriátrica de maltrato", route: "19_EscalaMaltrato", idEvaluacion: "19_maltrato" },
+    { label: "20. Movilidad en el entorno", route: "20_Formulario", idEvaluacion: "20_movilidad" },
 ];
 
 export default function EvaluacionesIndex() {
@@ -71,6 +71,23 @@ export default function EvaluacionesIndex() {
             params: {
                 pacienteId: selectedPatientId,
                 pacienteNombre: paciente ? `${paciente.nombre} ${paciente.apellidos}` : "",
+            },
+        });
+    };
+
+    const handleVerHistorial = () => {
+        if (!selectedPatientId) {
+            Alert.alert("Atención", "Selecciona un paciente antes de continuar.");
+            return;
+        }
+        const paciente = patients.find((p) => p.id === selectedPatientId);
+        router.push({
+            pathname: "/(drawer)/evaluaciones/historial",
+            params: {
+                pacienteId: selectedPatientId,
+                pacienteNombre: paciente ? `${paciente.nombre} ${paciente.apellidos}` : "",
+                idEvaluacion: selectedEval?.idEvaluacion ?? "",
+                evaluacionLabel: selectedEval?.label ?? "",
             },
         });
     };
@@ -144,7 +161,7 @@ export default function EvaluacionesIndex() {
                         </View>
                     )}
 
-                    {/* ── Botón ejecutar ── */}
+                    {/* ── Botones de acción ── */}
                     <Pressable
                         style={({ pressed }) => [
                             styles.btn,
@@ -156,6 +173,19 @@ export default function EvaluacionesIndex() {
                     >
                         <Ionicons name="play-circle-outline" size={24} color="#fff" />
                         <Text style={styles.btnText}>Ejecutar prueba</Text>
+                    </Pressable>
+
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.btnHistorial,
+                            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] },
+                            patients.length === 0 && styles.btnHistorialDisabled,
+                        ]}
+                        onPress={handleVerHistorial}
+                        disabled={patients.length === 0}
+                    >
+                        <Ionicons name="time-outline" size={24} color="#6D28D9" />
+                        <Text style={styles.btnHistorialText}>Ver historial</Text>
                     </Pressable>
                 </>
             )}
@@ -249,4 +279,20 @@ const styles = StyleSheet.create({
     },
     btnDisabled: { backgroundColor: "#93C5FD", elevation: 0 },
     btnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+
+    btnHistorial: {
+        backgroundColor: "#F3F0FF",
+        borderRadius: 14,
+        paddingVertical: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        marginTop: 12,
+        borderWidth: 2,
+        borderColor: "#7C3AED",
+        elevation: 1,
+    },
+    btnHistorialDisabled: { borderColor: "#C4B5FD", backgroundColor: "#FAF5FF" },
+    btnHistorialText: { color: "#6D28D9", fontSize: 18, fontWeight: "700" },
 });

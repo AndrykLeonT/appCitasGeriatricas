@@ -1,346 +1,245 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import {
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-export default function HomeScreen() {
-  // --- ESTADOS FORMULARIO PRINCIPAL ---
-  const [nombre, setNombre] = useState("");
-  const [contacto, setContacto] = useState("");
-  const [email, setEmail] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [fecha, setFecha] = useState("");
-  const [sintomas, setSintomas] = useState("");
-  const [esUrgente, setEsUrgente] = useState(false);
-  // --- ESTADOS ESCALA DE NORTON ---
-  const [modalNorton, setModalNorton] = useState(false);
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
+
+const CRITERIOS_NORTON = [
+  {
+    campo: 'fisico',
+    label: 'Estado físico',
+    opciones: [
+      { score: 1, texto: 'Muy malo' },
+      { score: 2, texto: 'Malo' },
+      { score: 3, texto: 'Regular' },
+      { score: 4, texto: 'Bueno' },
+    ],
+  },
+  {
+    campo: 'mental',
+    label: 'Estado mental',
+    opciones: [
+      { score: 1, texto: 'Estuporoso' },
+      { score: 2, texto: 'Confuso' },
+      { score: 3, texto: 'Apático' },
+      { score: 4, texto: 'Alerta' },
+    ],
+  },
+  {
+    campo: 'actividad',
+    label: 'Actividad',
+    opciones: [
+      { score: 1, texto: 'Encamado' },
+      { score: 2, texto: 'En silla' },
+      { score: 3, texto: 'Camina con ayuda' },
+      { score: 4, texto: 'Deambula' },
+    ],
+  },
+  {
+    campo: 'movilidad',
+    label: 'Movilidad',
+    opciones: [
+      { score: 1, texto: 'Inmóvil' },
+      { score: 2, texto: 'Muy limitada' },
+      { score: 3, texto: 'Ligeramente limitada' },
+      { score: 4, texto: 'Total' },
+    ],
+  },
+  {
+    campo: 'incontinencia',
+    label: 'Incontinencia',
+    opciones: [
+      { score: 1, texto: 'Doble incontinencia' },
+      { score: 2, texto: 'Incontinencia urinaria' },
+      { score: 3, texto: 'Ocasional' },
+      { score: 4, texto: 'Ninguna' },
+    ],
+  },
+];
+
+const getInterpretacion = (total: number) => {
+  if (total <= 12) return { texto: 'Alto riesgo', color: '#DC2626' };
+  if (total <= 14) return { texto: 'Riesgo moderado', color: '#D97706' };
+  return { texto: 'Bajo riesgo', color: '#16A34A' };
+};
+
+export default function NortonScreen() {
+  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+  }>();
+
   const [nortonScores, setNortonScores] = useState({
-    fisico: 4,
-    mental: 4,
-    actividad: 4,
-    movilidad: 4,
-    incontinencia: 4,
+    fisico: null as number | null,
+    mental: null as number | null,
+    actividad: null as number | null,
+    movilidad: null as number | null,
+    incontinencia: null as number | null,
   });
-  const [totalNorton, setTotalNorton] = useState(20);
-  // Calcular total de Norton automáticamente
-  useEffect(() => {
-    const { fisico, mental, actividad, movilidad, incontinencia } =
-      nortonScores;
-    setTotalNorton(fisico + mental + actividad + movilidad + incontinencia);
-  }, [nortonScores]);
-  const obtenerRiesgo = () => {
-    if (totalNorton <= 12) return { nivel: "ALTO", color: "#ff4757" };
-    if (totalNorton <= 16) return { nivel: "MODERADO", color: "#ffa502" };
-    return { nivel: "MÍNIMO", color: "#2ed573" };
-  };
-  const enviarFormulario = () => {
-    if (!nombre || !telefono || !email) {
-      Alert.alert("Error", "Por favor llena los campos principales.");
+  const [guardado, setGuardado] = useState(false);
+
+  const allAnswered = Object.values(nortonScores).every(v => v !== null);
+  const totalNorton = allAnswered
+    ? Object.values(nortonScores).reduce((a, b) => a! + b!, 0)!
+    : null;
+
+  const handleGuardar = async () => {
+    if (!allAnswered || totalNorton === null) {
+      Alert.alert('Incompleto', 'Seleccione un valor para cada criterio.');
       return;
     }
-    Alert.alert(
-      "Registro Exitoso",
-      `Paciente: ${nombre}\nEscala Norton: ${totalNorton} pts
-(${obtenerRiesgo().nivel})`,
-    );
+    if (guardado) return;
+    const interpretacion = getInterpretacion(totalNorton);
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: '12_norton',
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje: totalNorton,
+      });
+      setGuardado(true);
+      Alert.alert(
+        'Evaluación guardada',
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${totalNorton}/20\n${interpretacion.texto}`
+      );
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');
+    }
   };
-  // Componente interno para las filas de selección de la escala
-  const SelectorNorton = ({
-    label,
-    valor,
-    campo,
-  }: {
-    label: string;
-    valor: number;
-    campo: string;
-  }) => (
-    <View style={styles.nortonRow}>
-      <Text style={styles.nortonLabel}>{label}</Text>
-      <View style={styles.nortonButtons}>
-        {[1, 2, 3, 4].map((num) => (
-          <TouchableOpacity
-            key={num}
-            style={[styles.nortonBtn, valor === num && styles.nortonBtnActive]}
-            onPress={() => setNortonScores({ ...nortonScores, [campo]: num })}
-          >
-            <Text style={valor === num ? styles.txtWhite : styles.txtBlack}>
-              {num}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+
   return (
-    <ScrollView style={styles.mainContainer}>
-      <View style={styles.header}>
-        <Text style={styles.tituloPrincipal}>ADMINISTRADOR DE CITAS</Text>
-        <Text style={styles.clinicaGeriatrica}>Clínica Geriátrica</Text>
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.label}>Nombre del Paciente:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nombre completo"
-          onChangeText={setNombre}
-        />
-        <Text style={styles.label}>Nombre de Contacto:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Familiar responsable"
-          onChangeText={setContacto}
-        />
-        <Text style={styles.label}>Email:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="correo@ejemplo.com"
-          keyboardType="email-address"
-          onChangeText={setEmail}
-        />
-        <Text style={styles.label}>Teléfono:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="6641234567"
-          keyboardType="phone-pad"
-          onChangeText={setTelefono}
-        />
-        <Text style={styles.label}>Fecha de Cita:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="DD/MM/AAAA"
-          onChangeText={setFecha}
-        />
-        <Text style={styles.label}>Síntomas:</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Describa síntomas..."
-          multiline={true}
-          onChangeText={setSintomas}
-        />
-        <Text style={styles.seccionTitulo}>Próximas Evaluaciones:</Text>
-        <View style={styles.categoriasGrid}>
-          <View style={styles.categoriaItem}>
-            <MaterialCommunityIcons name="brain" size={24} color="#6c5ce7" />
-            <Text style={[styles.categoriaTexto, { color: "#6c5ce7" }]}>
-              Cognitivo
-            </Text>
-          </View>
-          <View style={styles.categoriaItem}>
-            <MaterialCommunityIcons
-              name="heart-pulse"
-              size={24}
-              color="#ff7675"
-            />
-            <Text style={[styles.categoriaTexto, { color: "#ff7675" }]}>
-              Afectivo
-            </Text>
-          </View>
-          {/* BOTÓN FUNCIONAMIENTO - ESCALA NORTON */}
-          <TouchableOpacity
-            style={styles.categoriaItem}
-            onPress={() => setModalNorton(true)}
-          >
-            <MaterialCommunityIcons name="walk" size={24} color="#00cec9" />
-            <Text style={[styles.categoriaTexto, { color: "#00cec9" }]}>
-              Funcionamiento
-            </Text>
-          </TouchableOpacity>
-          <View style={styles.categoriaItem}>
-            <MaterialCommunityIcons
-              name="food-apple"
-              size={24}
-              color="#fab1a0"
-            />
-            <Text style={[styles.categoriaTexto, { color: "#fab1a0" }]}>
-              Nutricional
-            </Text>
-          </View>
-          <View style={styles.categoriaItem}>
-            <MaterialCommunityIcons
-              name="home-group"
-              size={24}
-              color="#55efc4"
-            />
-            <Text style={[styles.categoriaTexto, { color: "#55efc4" }]}>
-              Entorno
-            </Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.titulo}>Escala de Norton</Text>
+      <Text style={styles.subtitulo}>Valoración de riesgo de úlceras por presión</Text>
+
+      {pacienteNombre !== '' && (
+        <View style={styles.pacienteBanner}>
+          <Text style={styles.pacienteBannerText}>👤 {pacienteNombre}</Text>
+        </View>
+      )}
+
+      {CRITERIOS_NORTON.map((criterio) => (
+        <View key={criterio.campo} style={styles.criterioCard}>
+          <Text style={styles.criterioLabel}>{criterio.label}</Text>
+          <View style={styles.botonesRow}>
+            {criterio.opciones.map(({ score, texto }) => {
+              const isSelected = nortonScores[criterio.campo as keyof typeof nortonScores] === score;
+              return (
+                <Pressable
+                  key={score}
+                  style={[styles.opcionBtn, isSelected && styles.opcionSelected]}
+                  onPress={() =>
+                    setNortonScores(prev => ({
+                      ...prev,
+                      [criterio.campo]: prev[criterio.campo as keyof typeof prev] === score ? null : score,
+                    }))
+                  }
+                >
+                  <Text style={[styles.opcionScore, isSelected && styles.opcionScoreSelected]}>{score}</Text>
+                  <Text style={[styles.opcionTexto, isSelected && styles.opcionTextoSelected]}>{texto}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
-        <View style={styles.switchRow}>
-          <Text style={styles.label}>¿Es una urgencia?</Text>
-          <Switch
-            value={esUrgente}
-            onValueChange={setEsUrgente}
-            trackColor={{ false: "#767577", true: "#6c5ce7" }}
-          />
-        </View>
-        <TouchableOpacity style={styles.botonEnviar} onPress={enviarFormulario}>
-          <Text style={styles.botonTexto}>REGISTRAR PACIENTE</Text>
-        </TouchableOpacity>
+      ))}
+
+      <View style={styles.interpretacionCard}>
+        <Text style={styles.reglasLabel}>Interpretación del puntaje</Text>
+        <Text style={styles.reglasText}>• ≤ 12 puntos: Alto riesgo</Text>
+        <Text style={styles.reglasText}>• 13–14 puntos: Riesgo moderado</Text>
+        <Text style={styles.reglasText}>• ≥ 15 puntos: Bajo riesgo</Text>
       </View>
-      {/* --- MODAL ESCALA DE NORTON --- */}
-      <Modal visible={modalNorton} animationType="slide">
-        <ScrollView style={styles.modalContent}>
-          <Text style={styles.nortonTitle}>Escala de Norton</Text>
-          <Text style={styles.nortonSub}>Valoración de riesgo de úlceras</Text>
-          <View
-            style={[
-              styles.nortonResult,
-              { borderColor: obtenerRiesgo().color },
-            ]}
-          >
-            <Text style={styles.nortonTotal}>{totalNorton} Puntos</Text>
-            <Text style={{ color: obtenerRiesgo().color, fontWeight: "bold" }}>
-              RIESGO
-              {obtenerRiesgo().nivel}
-            </Text>
-          </View>
-          <SelectorNorton
-            label="Estado Físico"
-            valor={nortonScores.fisico}
-            campo="fisico"
-          />
-          <SelectorNorton
-            label="Estado Mental"
-            valor={nortonScores.mental}
-            campo="mental"
-          />
-          <SelectorNorton
-            label="Actividad"
-            valor={nortonScores.actividad}
-            campo="actividad"
-          />
-          <SelectorNorton
-            label="Movilidad"
-            valor={nortonScores.movilidad}
-            campo="movilidad"
-          />
-          <SelectorNorton
-            label="Incontinencia"
-            valor={nortonScores.incontinencia}
-            campo="incontinencia"
-          />
-          <TouchableOpacity
-            style={styles.btnCerrar}
-            onPress={() => setModalNorton(false)}
-          >
-            <Text style={styles.btnCerrarTexto}>GUARDAR Y CERRAR</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </Modal>
+
+      {totalNorton !== null && (
+        <View style={[styles.resultBox, { borderColor: getInterpretacion(totalNorton).color }]}>
+          <Text style={styles.resultTotal}>{totalNorton} / 20 puntos</Text>
+          <Text style={[styles.resultTexto, { color: getInterpretacion(totalNorton).color }]}>
+            {getInterpretacion(totalNorton).texto}
+          </Text>
+        </View>
+      )}
+
+      <Pressable
+        style={({ pressed }) => [styles.btnGuardar, guardado && styles.btnGuardado, pressed && { opacity: 0.8 }]}
+        onPress={handleGuardar}
+        disabled={guardado}
+      >
+        <Text style={styles.btnGuardarText}>{guardado ? '✓ Evaluación guardada' : 'Guardar evaluación'}</Text>
+      </Pressable>
+      <View style={{ height: 30 }} />
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
-  // ... (tus estilos anteriores se mantienen iguales)
-  mainContainer: { flex: 1, backgroundColor: "#f1f2f6", padding: 20 },
-  header: { marginTop: 60, marginBottom: 20, alignItems: "center" },
-  tituloPrincipal: { fontSize: 20, fontWeight: "400", color: "#2f3542" },
-  clinicaGeriatrica: { fontSize: 24, fontWeight: "bold", color: "#6c5ce7" },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 40,
-    elevation: 5,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#57606f",
-    marginBottom: 5,
-    marginTop: 15,
-  },
-  input: {
+  container: { flex: 1, backgroundColor: '#F9FAFB', padding: 16 },
+  titulo: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', color: '#1F2937', marginBottom: 4 },
+  subtitulo: { fontSize: 13, textAlign: 'center', color: '#6B7280', marginBottom: 16 },
+  pacienteBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#ced4da",
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    color: "#2f3542",
+    borderColor: '#BFDBFE',
   },
-  textArea: { height: 70, textAlignVertical: "top" },
-  seccionTitulo: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 25,
-    marginBottom: 15,
-    textAlign: "center",
+  pacienteBannerText: { fontSize: 14, fontWeight: '700', color: '#1E40AF', textAlign: 'center' },
+
+  criterioCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
   },
-  categoriasGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  categoriaItem: { alignItems: "center", width: "30%", marginBottom: 15 },
-  categoriaTexto: { fontSize: 10, fontWeight: "bold", marginTop: 5 },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  botonEnviar: {
-    backgroundColor: "#6c5ce7",
-    padding: 15,
+  criterioLabel: { fontSize: 15, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
+  botonesRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  opcionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
     borderRadius: 10,
-    marginTop: 25,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
   },
-  botonTexto: {
-    color: "white",
-    textAlign: "center",
-    fontWeight: "bold",
-    fontSize: 16,
+  opcionSelected: { backgroundColor: '#00cec9', borderColor: '#00cec9' },
+  opcionScore: { fontSize: 18, fontWeight: '700', color: '#374151' },
+  opcionScoreSelected: { color: '#fff' },
+  opcionTexto: { fontSize: 11, color: '#6B7280', textAlign: 'center', marginTop: 4 },
+  opcionTextoSelected: { color: '#fff', fontWeight: '600' },
+
+  interpretacionCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
   },
-  // --- NUEVOS ESTILOS NORTON ---
-  modalContent: { flex: 1, padding: 30, backgroundColor: "#fff" },
-  nortonTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginTop: 20,
-  },
-  nortonSub: {
-    textAlign: "center",
-    color: "#00cec9",
-    marginBottom: 20,
-    fontWeight: "600",
-  },
-  nortonResult: {
-    padding: 20,
+  reglasLabel: { fontSize: 13, fontWeight: '700', color: '#0369A1', marginBottom: 8 },
+  reglasText: { fontSize: 13, color: '#0369A1', lineHeight: 20 },
+
+  resultBox: {
     borderWidth: 2,
-    borderRadius: 15,
-    alignItems: "center",
-    marginBottom: 20,
+    borderRadius: 12,
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 16,
+    backgroundColor: '#fff',
   },
-  nortonTotal: { fontSize: 30, fontWeight: "bold" },
-  nortonRow: { marginBottom: 20 },
-  nortonLabel: { fontWeight: "bold", marginBottom: 10 },
-  nortonButtons: { flexDirection: "row", justifyContent: "space-between" },
-  nortonBtn: {
-    backgroundColor: "#f1f2f6",
-    padding: 10,
-    borderRadius: 8,
-    width: "22%",
-    alignItems: "center",
-  },
-  nortonBtnActive: { backgroundColor: "#00cec9" },
-  txtWhite: { color: "white", fontWeight: "bold" },
-  txtBlack: { color: "black" },
-  btnCerrar: {
-    backgroundColor: "#2f3542",
-    padding: 15,
+  resultTotal: { fontSize: 26, fontWeight: 'bold', color: '#1F2937' },
+  resultTexto: { fontSize: 16, fontWeight: '700', marginTop: 4 },
+
+  btnGuardar: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 15,
     borderRadius: 10,
-    marginTop: 30,
-    marginBottom: 50,
+    alignItems: 'center',
   },
-  btnCerrarTexto: { color: "white", textAlign: "center", fontWeight: "bold" },
+  btnGuardado: { backgroundColor: '#10B981' },
+  btnGuardarText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
 });

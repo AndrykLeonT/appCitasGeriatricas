@@ -1,4 +1,4 @@
-import { child, get, push, ref, set } from 'firebase/database';
+import { child, get, push, ref, remove, set } from 'firebase/database';
 import { db } from './firebasePatients';
 
 export interface RegistroEvaluacion {
@@ -22,6 +22,30 @@ export const guardarRegistroEvaluacion = async (
     }
 };
 
+export const leerRegistrosPorPacienteYEvaluacion = async (
+    idPaciente: string,
+    idEvaluacion: string
+): Promise<RegistroEvaluacion[]> => {
+    try {
+        const snapshot = await get(child(ref(db), 'registroEvaluaciones'));
+        const records: RegistroEvaluacion[] = [];
+        if (snapshot.exists()) {
+            snapshot.forEach((snap) => {
+                const data = snap.val();
+                if (data.idPaciente === idPaciente && data.idEvaluacion === idEvaluacion) {
+                    records.push({ id: snap.key!, ...data });
+                }
+            });
+        }
+        return records.sort(
+            (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+        );
+    } catch (e) {
+        console.error('Error reading evaluation records:', e);
+        return [];
+    }
+};
+
 export const leerRegistrosPorPaciente = async (
     idPaciente: string
 ): Promise<RegistroEvaluacion[]> => {
@@ -42,5 +66,14 @@ export const leerRegistrosPorPaciente = async (
     } catch (e) {
         console.error('Error reading evaluation records:', e);
         return [];
+    }
+};
+
+export const eliminarRegistroEvaluacion = async (id: string): Promise<void> => {
+    try {
+        await remove(ref(db, `registroEvaluaciones/${id}`));
+    } catch (e) {
+        console.error('Error deleting evaluation record:', e);
+        throw e;
     }
 };
