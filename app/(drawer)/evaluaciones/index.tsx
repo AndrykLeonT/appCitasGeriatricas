@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../../../components/CustomPicker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -22,8 +23,11 @@ const EVALUACIONES = [
     { label: "06. CESD-7 ítems", route: "06_CESD7Test6", idEvaluacion: "06_cesd7" },
     { label: "07. Índice de Katz", route: "07_KatzIndex", idEvaluacion: "07_katz" },
     { label: "08. Índice de Lawton", route: "08_Lawton", idEvaluacion: "08_lawton" },
+    { label: "09. Escala FRAIL", route: "09_FrailApp", idEvaluacion: "09_frail" },
+    { label: "10. Batería de Desempeño Físico (SPPB)", route: "10_SPPBScreen", idEvaluacion: "10_sppb" },
     { label: "11. Escala Braden", route: "11_App", idEvaluacion: "11_braden" },
     { label: "12. Escala Norton", route: "12_prueba", idEvaluacion: "12_norton" },
+    { label: "13. Prueba del Susurro", route: "13_PruebaSusurro", idEvaluacion: "13_susurro" },
     { label: "14. Agudeza Visual", route: "14_AgudezaVisual", idEvaluacion: "14_agudeza_visual" },
     { label: "15. MNA-SF", route: "15_MNA-SF", idEvaluacion: "15_mna_sf" },
     { label: "16. MUST", route: "16_MUST", idEvaluacion: "16_must" },
@@ -47,8 +51,8 @@ export default function EvaluacionesIndex() {
                 try {
                     const data = await readPatientsFromFirebase();
                     setPatients(data);
-                    if (data.length > 0 && !selectedPatientId) {
-                        setSelectedPatientId(data[0].id);
+                    if (data.length > 0) {
+                        setSelectedPatientId(prev => prev ? prev : data[0].id);
                     }
                 } catch {
                     Alert.alert("Error", "No se pudieron cargar los pacientes.");
@@ -66,11 +70,13 @@ export default function EvaluacionesIndex() {
             return;
         }
         const paciente = patients.find((p) => p.id === selectedPatientId);
+        const selectedEval = EVALUACIONES.find((e) => e.route === selectedEvaluacion);
         router.push({
             pathname: `/(drawer)/evaluaciones/${selectedEvaluacion}` as any,
             params: {
                 pacienteId: selectedPatientId,
                 pacienteNombre: paciente ? `${paciente.nombre} ${paciente.apellidos}` : "",
+                idEvaluacion: selectedEval?.idEvaluacion ?? "",
             },
         });
     };
@@ -96,7 +102,7 @@ export default function EvaluacionesIndex() {
     const selectedEval = EVALUACIONES.find((e) => e.route === selectedEvaluacion);
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
             <Text style={styles.titulo}>Evaluaciones</Text>
 
             <View style={styles.instructionCard}>
@@ -116,7 +122,7 @@ export default function EvaluacionesIndex() {
                         {patients.length === 0 ? (
                             <Text style={styles.emptyText}>No hay pacientes registrados</Text>
                         ) : (
-                            <Picker
+                            <CustomPicker
                                 selectedValue={selectedPatientId}
                                 onValueChange={(value) => setSelectedPatientId(value)}
                                 style={styles.picker}
@@ -128,14 +134,14 @@ export default function EvaluacionesIndex() {
                                         value={p.id}
                                     />
                                 ))}
-                            </Picker>
+                            </CustomPicker>
                         )}
                     </View>
 
                     {/* ── Selector de evaluación ── */}
                     <Text style={styles.label}>Evaluación</Text>
                     <View style={styles.pickerWrapper}>
-                        <Picker
+                        <CustomPicker
                             selectedValue={selectedEvaluacion}
                             onValueChange={(value) => setSelectedEvaluacion(value)}
                             style={styles.picker}
@@ -143,7 +149,7 @@ export default function EvaluacionesIndex() {
                             {EVALUACIONES.map((e) => (
                                 <Picker.Item key={e.route} label={e.label} value={e.route} />
                             ))}
-                        </Picker>
+                        </CustomPicker>
                     </View>
 
                     {/* ── Resumen de selección ── */}
@@ -235,13 +241,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#E5E7EB",
         marginBottom: 20,
-        overflow: "hidden",
         elevation: 2,
         shadowColor: "#000",
         shadowOpacity: 0.05,
         shadowRadius: 4,
+        height: 50,
+        justifyContent: "center",
     },
-    picker: { width: "100%" },
+    picker: { width: "100%", backgroundColor: "transparent" },
     emptyText: { padding: 16, color: "#9CA3AF", fontSize: 14 },
 
     summaryCard: {

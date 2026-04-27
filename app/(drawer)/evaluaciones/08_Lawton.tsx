@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import BouncyCheckbox from 'react-native-bouncy-checkbox';
@@ -82,9 +82,11 @@ const PREGUNTAS: { key: LawtonKey; titulo: string; descripcion: string }[] = [
 ];
 
 export default function Lawton() {
-  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '08_lawton' } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
 
   const [answers, setAnswers] = useState<LawtonAnswers>({
@@ -107,14 +109,16 @@ export default function Lawton() {
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: '08_lawton',
+        idEvaluacion: idEvaluacion,
         fecha: new Date().toISOString().split('T')[0],
         puntaje,
+        diagnostico: interpretacion
       });
       setGuardado(true);
       Alert.alert(
         'Evaluación guardada',
-        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje}/8\n${interpretacion}`
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje}/8\n${interpretacion}`,
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch {
       Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');

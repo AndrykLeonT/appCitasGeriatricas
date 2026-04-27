@@ -6,7 +6,8 @@ export interface RegistroEvaluacion {
     idPaciente: string;
     idEvaluacion: string;
     fecha: string;   // "YYYY-MM-DD"
-    puntaje: number;
+    puntaje: number | string;
+    diagnostico?: string;
 }
 
 export const guardarRegistroEvaluacion = async (
@@ -75,5 +76,23 @@ export const eliminarRegistroEvaluacion = async (id: string): Promise<void> => {
     } catch (e) {
         console.error('Error deleting evaluation record:', e);
         throw e;
+    }
+};
+
+export const leerUltimasEvaluaciones = async (limite: number = 5): Promise<RegistroEvaluacion[]> => {
+    try {
+        const snapshot = await get(child(ref(db), 'registroEvaluaciones'));
+        const records: RegistroEvaluacion[] = [];
+        if (snapshot.exists()) {
+            snapshot.forEach((snap) => {
+                records.push({ id: snap.key!, ...snap.val() });
+            });
+        }
+        return records
+            .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+            .slice(0, limite);
+    } catch (e) {
+        console.error('Error reading recent evaluation records:', e);
+        return [];
     }
 };

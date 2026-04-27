@@ -8,10 +8,17 @@ import {
   StyleSheet,
   TextInput,
   View,
+  Alert,
+  Text
 } from "react-native";
-import { Text } from "react-native-web";
+import { Accelerometer } from "expo-sensors";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { guardarRegistroEvaluacion } from "../../../services/firebaseEvaluaciones";
 
 function Formulario({ navigation }) {
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '20_movilidad' } = useLocalSearchParams();
+  const [guardando, setGuardando] = useState(false);
   const [respuestas, setRespuestas] = useState(Array(50).fill(false));
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -22,6 +29,10 @@ function Formulario({ navigation }) {
   // Para el DatePicker (opcional)
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [date, setDate] = useState(new Date());
+
+  // Sensor State
+  const [movementAlert, setMovementAlert] = useState(false);
+  const [subscription, setSubscription] = useState(null);
 
   const onChangeDate = (event, selectedDate) => {
     const currentDate = selectedDate || date;
@@ -40,12 +51,63 @@ function Formulario({ navigation }) {
     setCantidades(`Sí: ${cantidadSi}\nNo: ${cantidadNo}`);
   }, [respuestas]);
 
+  // Accelerometer Logic
+  useEffect(() => {
+    let sub = null;
+    Accelerometer.setUpdateInterval(500);
+    const startSensor = async () => {
+      const { status } = await Accelerometer.requestPermissionsAsync();
+      if (status === 'granted') {
+        sub = Accelerometer.addListener(accelerometerData => {
+          const { x, y, z } = accelerometerData;
+          const totalMovement = Math.abs(x) + Math.abs(y) + Math.abs(z);
+          // If total movement > 3.5G, clear answers and alert
+          if (totalMovement > 3.5) {
+            setRespuestas(Array(50).fill(false));
+            setSintomas("");
+            setMovementAlert(true);
+          }
+        });
+        setSubscription(sub);
+      }
+    };
+    startSensor();
+
+    return () => {
+      if (sub) {
+        sub.remove();
+      }
+    };
+  }, []);
+
   const showDatepicker = () => {
     setShowDatePicker(true);
   };
 
-  const handleSubmit = () => {
-    navigation.goBack();
+  const handleSubmit = async () => {
+    if (guardando) return;
+    setGuardando(true);
+
+    const cantidadSi = respuestas.filter((r) => r).length;
+    
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: idEvaluacion,
+        fecha: new Date().toISOString().split("T")[0],
+        puntaje: cantidadSi,
+        diagnostico: `Respuestas afirmativas: ${cantidadSi} de ${respuestas.length}. ${sintomas ? 'Síntomas: ' + sintomas : ''}`
+      });
+      Alert.alert(
+        "Éxito", 
+        "Evaluación guardada correctamente.",
+        [{ text: "OK", onPress: () => router.back() }]
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo guardar la evaluación");
+    } finally {
+      setGuardando(false);
+    }
   };
 
   return (
@@ -54,12 +116,26 @@ function Formulario({ navigation }) {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={true}
     >
-      <TextInput
-        style={styles.input}
-        placeholder="Nombre Completo"
-        value={nombre}
-        onChangeText={setNombre}
-      />
+      {movementAlert && (
+        <View style={styles.alertBox}>
+          <Text style={styles.alertText}>
+            ⚠️ Se ha detectado mucho movimiento en el dispositivo. 
+            Asegúrese de que el paciente está estable durante la prueba de movilidad.
+          </Text>
+          <Button title="Entendido" onPress={() => setMovementAlert(false)} color="#D97706" />
+        </View>
+      )}
+
+      {pacienteNombre ? (
+        <Text style={{fontSize: 16, marginBottom: 10, marginTop: 10, fontWeight: "bold"}}>Paciente: {pacienteNombre}</Text>
+      ) : (
+        <TextInput
+          style={styles.input}
+          placeholder="Nombre Completo"
+          value={nombre}
+          onChangeText={setNombre}
+        />
+      )}
 
       <TextInput
         style={styles.input}
@@ -221,7 +297,11 @@ function Formulario({ navigation }) {
       <Text>{cantidades}</Text>
 
       <View style={styles.buttonContainer}>
-        <Button title="Enviar" onPress={handleSubmit} />
+        <Button 
+          title={guardando ? "Guardando..." : "Enviar Evaluación"} 
+          onPress={handleSubmit} 
+          disabled={guardando} 
+        />
       </View>
     </ScrollView>
   );
@@ -252,6 +332,21 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginVertical: 8,
   },
+  alertBox: {
+    backgroundColor: '#FEF3C7',
+    padding: 15,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    marginBottom: 15,
+    marginTop: 10,
+  },
+  alertText: {
+    color: '#92400E',
+    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: 'bold',
+  }
 });
 
 export default Formulario;

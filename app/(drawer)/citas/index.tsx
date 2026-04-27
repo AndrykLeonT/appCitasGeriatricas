@@ -3,10 +3,12 @@ import { useFocusEffect, useRouter } from "expo-router";
 import React, { useState, useCallback } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import CustomPicker from "../../../components/CustomPicker";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LineChart } from "react-native-gifted-charts";
 import * as SQLite from "expo-sqlite";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { readCitasFromFirebase, Cita } from "../../../services/firebaseCitas";
 import { readPatientsFromFirebase, Patient } from "../../../services/firebasePatients";
@@ -67,12 +69,12 @@ export default function CitasIndex() {
         }, [])
     );
 
-    const getStatusColor = (status: string) => {
+    const getStatusColor = (status: string): readonly [string, string, ...string[]] => {
         switch (status) {
-            case 'agendado': return '#3B82F6';
-            case 'en curso': return '#F59E0B';
-            case 'concluida': return '#10B981';
-            default: return '#6B7280';
+            case 'agendado': return ['#4F46E5', '#818CF8'];
+            case 'en curso': return ['#D97706', '#FBBF24'];
+            case 'concluida': return ['#059669', '#34D399'];
+            default: return ['#4B5563', '#9CA3AF'];
         }
     };
 
@@ -82,28 +84,28 @@ export default function CitasIndex() {
                 <View style={styles.grid}>
                     <View style={styles.accionesRow}>
                         <Pressable
-                            style={({ pressed }) => [
-                                styles.tarjeta,
-                                styles.tarjetaMedia,
-                                { opacity: pressed ? 0.7 : 1 },
-                            ]}
+                            style={({ pressed }) => [styles.tarjetaPressable, { opacity: pressed ? 0.8 : 1 }]}
                             onPress={() => router.push("/(drawer)/citas/crear-cita")}
                         >
-                            <FontAwesome name="calendar-plus-o" size={36} color="#60A5FA" />
-                            <Text style={styles.tarjetaTitulo}>Nueva Cita</Text>
-                            <Text style={styles.tarjetaDesc}>Agendar cita en el sistema</Text>
+                            <LinearGradient colors={['#3B82F6', '#8B5CF6']} style={styles.tarjetaGradient}>
+                                <View style={styles.iconCircleWrapper}>
+                                    <FontAwesome name="calendar-plus-o" size={28} color="#FFFFFF" />
+                                </View>
+                                <Text style={styles.tarjetaTituloWhite}>Nueva Cita</Text>
+                                <Text style={styles.tarjetaDescWhite}>Agendar cita en el sistema</Text>
+                            </LinearGradient>
                         </Pressable>
                         <Pressable
-                            style={({ pressed }) => [
-                                styles.tarjeta,
-                                styles.tarjetaMedia,
-                                { opacity: pressed ? 0.7 : 1 },
-                            ]}
+                            style={({ pressed }) => [styles.tarjetaPressable, { opacity: pressed ? 0.8 : 1 }]}
                             onPress={() => router.push("/(drawer)/citas/bitacora")}
                         >
-                            <FontAwesome name="book" size={36} color="#8B5CF6" />
-                            <Text style={styles.tarjetaTitulo}>Bitácora</Text>
-                            <Text style={styles.tarjetaDesc}>Historial de citas registradas</Text>
+                            <LinearGradient colors={['#10B981', '#34D399']} style={styles.tarjetaGradient}>
+                                <View style={styles.iconCircleWrapper}>
+                                    <FontAwesome name="book" size={28} color="#FFFFFF" />
+                                </View>
+                                <Text style={styles.tarjetaTituloWhite}>Bitácora</Text>
+                                <Text style={styles.tarjetaDescWhite}>Historial de citas</Text>
+                            </LinearGradient>
                         </Pressable>
                     </View>
                 </View>
@@ -127,11 +129,11 @@ export default function CitasIndex() {
 
                 {loading ? (
                     <View style={styles.centerContainer}>
-                        <ActivityIndicator size="large" color="#3B82F6" />
+                        <ActivityIndicator size="large" color="#4F46E5" />
                     </View>
                 ) : citas.length === 0 ? (
                     <View style={styles.emptyContainer}>
-                        <Ionicons name="calendar-outline" size={50} color="#D1D5DB" />
+                        <Ionicons name="calendar-outline" size={60} color="#CBD5E1" />
                         <Text style={styles.emptyText}>No hay citas pendientes.</Text>
                     </View>
                 ) : (
@@ -141,32 +143,47 @@ export default function CitasIndex() {
                             <Pressable 
                                 key={cita.id} 
                                 onPress={() => router.push({ pathname: "/(drawer)/citas/ver-cita", params: { citaData: JSON.stringify(cita) } })}
-                                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+                                style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}
                             >
                                 <View style={styles.citaCard}>
                                     <View style={styles.citaHeader}>
-                                        <Text style={styles.citaDate}>
-                                            {citaDate.toLocaleDateString()} - {citaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </Text>
-                                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(cita.status) }]}>
-                                            <Text style={styles.statusText}>{cita.status.toUpperCase()}</Text>
+                                        <View style={styles.dateBadge}>
+                                            <Text style={styles.dateDay}>{citaDate.getDate().toString().padStart(2, '0')}</Text>
+                                            <Text style={styles.dateMonth}>{citaDate.toLocaleString('es', { month: 'short' }).toUpperCase()}</Text>
+                                        </View>
+                                        <View style={styles.headerRight}>
+                                            <Text style={styles.citaTime}>
+                                                <Ionicons name="time-outline" size={14} /> {citaDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </Text>
+                                            <LinearGradient 
+                                                colors={getStatusColor(cita.status)} 
+                                                style={styles.statusGradientBadge}
+                                                start={{x: 0, y: 0}} end={{x: 1, y: 0}}
+                                            >
+                                                <Text style={styles.statusText}>{cita.status.toUpperCase()}</Text>
+                                            </LinearGradient>
                                         </View>
                                     </View>
                                     
                                     <View style={styles.citaBody}>
-                                        <Text style={styles.citaLabel}>Paciente</Text>
-                                        <Text style={styles.citaName}>{cita.pacienteNombre}</Text>
-
-                                        <Text style={[styles.citaLabel, { marginTop: 8 }]}>Médico</Text>
-                                        <Text style={styles.citaName}>{cita.medicoNombre}</Text>
+                                        <View style={styles.infoBlock}>
+                                            <Text style={styles.citaLabel}>PACIENTE</Text>
+                                            <Text style={styles.citaName}>{cita.pacienteNombre}</Text>
+                                        </View>
+                                        <View style={styles.infoBlock}>
+                                            <Text style={styles.citaLabel}>MÉDICO</Text>
+                                            <Text style={styles.citaName}>{cita.medicoNombre}</Text>
+                                        </View>
                                     </View>
 
                                     <View style={styles.citaFooter}>
                                         <Text style={styles.duracionText}>
-                                            <Ionicons name="time-outline" size={14} color="#6B7280" /> {cita.duracion} min
+                                            <Ionicons name="hourglass-outline" size={14} color="#6B7280" /> {cita.duracion} min
                                         </Text>
                                         {cita.primeraCita && (
-                                            <Text style={styles.primeraCitaBadge}>Primera Cita</Text>
+                                            <View style={styles.primeraCitaWrapper}>
+                                                <Text style={styles.primeraCitaBadge}>Primera Cita</Text>
+                                            </View>
                                         )}
                                     </View>
                                 </View>
@@ -179,20 +196,15 @@ export default function CitasIndex() {
     };
 
     const renderGrafica = () => {
-        // Algorithm variables
         const groupedByDay: { [dateStr: string]: number } = {};
-        
         let filteredCitas = citas;
         
-        // 1. Filter by Mode (Entity)
         if (densidadMode === 'paciente' && entityId) {
             filteredCitas = filteredCitas.filter(c => c.pacienteId === entityId);
         } else if (densidadMode === 'medico' && entityId) {
             filteredCitas = filteredCitas.filter(c => String(c.medicoId) === entityId);
         }
 
-        // 2. Filter by Dates and Group Day by Day
-        // Truncate times for raw logic
         const startRaw = new Date(startDate); startRaw.setHours(0,0,0,0);
         const endRaw = new Date(endDate); endRaw.setHours(23,59,59,999);
 
@@ -204,9 +216,8 @@ export default function CitasIndex() {
             }
         });
 
-        // 3. To maintain line continuity, generate days array from start to end (limiting to max span for safety)
         const dayDifference = Math.floor((endRaw.getTime() - startRaw.getTime()) / (1000 * 60 * 60 * 24));
-        const limitedDiff = dayDifference > 60 ? 60 : dayDifference; // Protect plotting limits
+        const limitedDiff = dayDifference > 60 ? 60 : dayDifference; 
 
         const chartPoints = [];
         let peakDensity = 0;
@@ -227,45 +238,41 @@ export default function CitasIndex() {
             });
         }
 
-        // Status Logic
         const percentage = maxY > 0 ? (peakDensity / maxY) * 100 : 0;
         let densityStatus = "Relajado";
-        let densityColor = "#10B981"; // Green
+        let densityColor: readonly [string, string, ...string[]] = ['#10B981', '#34D399'];
         let densityIcon = "leaf";
 
         if (percentage >= 30 && percentage <= 60) {
             densityStatus = "Ocupado";
-            densityColor = "#F59E0B"; // Yellow
+            densityColor = ['#F59E0B', '#FCD34D'];
             densityIcon = "speedometer-outline";
         } else if (percentage > 60) {
             densityStatus = "Saturado";
-            densityColor = "#EF4444"; // Red
+            densityColor = ['#EF4444', '#FCA5A5'];
             densityIcon = "warning";
         }
 
         return (
             <View>
                 <View style={styles.controlsCard}>
-                    <Text style={styles.sectionHeading}>Parámetros de Gráfica</Text>
+                    <Text style={styles.sectionHeading}>Filtros y Parámetros</Text>
                     
                     <Text style={styles.label}>Valor Máximo (Y):</Text>
                     <View style={styles.pickerWrapper}>
-                        <Picker
-                            selectedValue={maxY}
-                            onValueChange={(val) => setMaxY(Number(val))}
-                            style={styles.picker}
-                        >
+                        <CustomPicker selectedValue={maxY} onValueChange={(val) => setMaxY(Number(val))} style={styles.picker}>
                             <Picker.Item label="5 citas (Diarias)" value={5} />
                             <Picker.Item label="10 citas (Diarias)" value={10} />
                             <Picker.Item label="20 citas (Diarias)" value={20} />
                             <Picker.Item label="50 citas (Diarias)" value={50} />
-                        </Picker>
+                        </CustomPicker>
                     </View>
 
                     <View style={styles.row}>
-                        <View style={{ flex: 1, paddingRight: 5 }}>
+                        <View style={{ flex: 1, paddingRight: 8 }}>
                             <Text style={styles.label}>Fecha Inicial:</Text>
                             <Pressable style={styles.datePickerBtn} onPress={() => setShowStartPicker(true)}>
+                                <Ionicons name="calendar" size={16} color="#6B7280" style={{marginRight: 6}}/>
                                 <Text style={styles.datePickerText}>{startDate.toLocaleDateString()}</Text>
                             </Pressable>
                             {showStartPicker && (
@@ -280,9 +287,10 @@ export default function CitasIndex() {
                                 />
                             )}
                         </View>
-                        <View style={{ flex: 1, paddingLeft: 5 }}>
+                        <View style={{ flex: 1, paddingLeft: 8 }}>
                             <Text style={styles.label}>Fecha Final:</Text>
                             <Pressable style={styles.datePickerBtn} onPress={() => setShowEndPicker(true)}>
+                                <Ionicons name="calendar" size={16} color="#6B7280" style={{marginRight: 6}}/>
                                 <Text style={styles.datePickerText}>{endDate.toLocaleDateString()}</Text>
                             </Pressable>
                             {showEndPicker && (
@@ -299,9 +307,9 @@ export default function CitasIndex() {
                         </View>
                     </View>
 
-                    <Text style={styles.label}>Tipo de Filtro:</Text>
+                    <Text style={styles.label}>Modo de Densidad:</Text>
                     <View style={styles.pickerWrapper}>
-                        <Picker
+                        <CustomPicker
                             selectedValue={densidadMode}
                             onValueChange={(val) => {
                                 setDensidadMode(val);
@@ -309,86 +317,82 @@ export default function CitasIndex() {
                             }}
                             style={styles.picker}
                         >
-                            <Picker.Item label="Todas las citas" value="todas" />
+                            <Picker.Item label="Global (Todas las citas)" value="todas" />
                             <Picker.Item label="Por Paciente" value="paciente" />
                             <Picker.Item label="Por Médico" value="medico" />
-                        </Picker>
+                        </CustomPicker>
                     </View>
 
                     {densidadMode === 'paciente' && (
-                        <>
+                        <View style={{marginTop: 10}}>
                             <Text style={styles.label}>Seleccionar Paciente:</Text>
                             <View style={styles.pickerWrapper}>
-                                <Picker
-                                    selectedValue={entityId}
-                                    onValueChange={(val) => setEntityId(val)}
-                                    style={styles.picker}
-                                >
+                                <CustomPicker selectedValue={entityId} onValueChange={(val) => setEntityId(val)} style={styles.picker}>
                                     <Picker.Item label="Seleccione un paciente..." value="" />
                                     {pacientes.map(p => (
                                         <Picker.Item key={p.id} label={`${p.nombre} ${p.apellidos}`} value={p.id} />
                                     ))}
-                                </Picker>
+                                </CustomPicker>
                             </View>
-                        </>
+                        </View>
                     )}
 
                     {densidadMode === 'medico' && (
-                        <>
+                        <View style={{marginTop: 10}}>
                             <Text style={styles.label}>Seleccionar Médico:</Text>
                             <View style={styles.pickerWrapper}>
-                                <Picker
-                                    selectedValue={entityId}
-                                    onValueChange={(val) => setEntityId(String(val))}
-                                    style={styles.picker}
-                                >
+                                <CustomPicker selectedValue={entityId} onValueChange={(val) => setEntityId(String(val))} style={styles.picker}>
                                     <Picker.Item label="Seleccione un médico..." value="" />
                                     {medicos.map(m => (
                                         <Picker.Item key={m.id} label={`Dr. ${m.nombre} ${m.apellido1}`} value={String(m.id)} />
                                     ))}
-                                </Picker>
+                                </CustomPicker>
                             </View>
-                        </>
+                        </View>
                     )}
                 </View>
 
-                {/* Density Status Indicator */}
-                <View style={[styles.densityCard, { borderTopWidth: 4, borderTopColor: densityColor }]}>
-                    <Text style={styles.densityLabel}>Estado Actual de Densidad del Rango:</Text>
-                    <View style={styles.densityRow}>
-                        <Ionicons name={densityIcon as any} size={28} color={densityColor} style={{ marginRight: 10 }} />
-                        <Text style={[styles.densityTextStatus, { color: densityColor }]}>{densityStatus.toUpperCase()}</Text>
+                <LinearGradient colors={densityColor} style={styles.densityGradientCard} start={{x:0, y:0}} end={{x:1, y:1}}>
+                    <View style={styles.densityOverlay}>
+                        <Text style={styles.densityLabelWhite}>Carga de Trabajo del Rango:</Text>
+                        <View style={styles.densityRow}>
+                            <Ionicons name={densityIcon as any} size={32} color="#FFF" style={{ marginRight: 12 }} />
+                            <Text style={styles.densityTextStatusWhite}>{densityStatus.toUpperCase()}</Text>
+                        </View>
+                        <View style={styles.densityPill}>
+                            <Text style={styles.densitySummaryWhite}>
+                                Pico Máximo: {peakDensity} citas ({(percentage).toFixed(1)}%)
+                            </Text>
+                        </View>
                     </View>
-                    <Text style={styles.densitySummary}>
-                        Pico Máximo Registrado: {peakDensity} citas ({(percentage).toFixed(1)}% de {maxY})
-                    </Text>
-                </View>
+                </LinearGradient>
 
-                {/* Main Graph Component */}
                 <View style={styles.graphContainer}>
-                    <Text style={styles.sectionHeading}>Citas por Día</Text>
+                    <Text style={styles.graphHeading}>Tendencia de Citas</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={{ paddingTop: 20 }}>
                         <LineChart
                             data={chartPoints}
                             height={220}
                             maxValue={maxY}
-                            spacing={50}
+                            spacing={55}
                             initialSpacing={20}
-                            color="#3B82F6"
-                            thickness={3}
-                            startFillColor="rgba(59, 130, 246, 0.3)"
-                            endFillColor="rgba(59, 130, 246, 0.05)"
+                            color="#6366F1"
+                            thickness={4}
+                            startFillColor="rgba(99, 102, 241, 0.4)"
+                            endFillColor="rgba(99, 102, 241, 0.01)"
                             startOpacity={0.9}
-                            endOpacity={0.2}
-                            dataPointsColor="#2563EB"
-                            dataPointsRadius={4}
-                            yAxisColor="#E5E7EB"
-                            xAxisColor="#E5E7EB"
-                            yAxisTextStyle={{ color: '#6B7280', fontSize: 11 }}
-                            xAxisLabelTextStyle={{ color: '#9CA3AF', fontSize: 10, width: 45, textAlign: 'center' }}
+                            endOpacity={0.1}
+                            dataPointsColor="#4F46E5"
+                            dataPointsRadius={5}
+                            yAxisColor="transparent"
+                            xAxisColor="#E2E8F0"
+                            yAxisTextStyle={{ color: '#94A3B8', fontSize: 11, fontWeight: '600' }}
+                            xAxisLabelTextStyle={{ color: '#64748B', fontSize: 11, width: 45, textAlign: 'center', fontWeight: '500' }}
                             areaChart
                             curved
+                            hideRules
+                            isAnimated
                         />
                         </View>
                     </ScrollView>
@@ -401,23 +405,23 @@ export default function CitasIndex() {
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
-                <View style={styles.tabBar}>
+                <View style={styles.tabContainer}>
                     <Pressable 
                         style={[styles.tabBtn, activeTab === 'lista' && styles.tabBtnActive]}
                         onPress={() => setActiveTab('lista')}
                     >
-                        <MaterialIcons name="list-alt" size={20} color={activeTab === 'lista' ? "#2563EB" : "#6B7280"} style={{ marginRight: 6 }}/>
+                        <MaterialIcons name="list-alt" size={22} color={activeTab === 'lista' ? "#4F46E5" : "#94A3B8"} style={{ marginRight: 8 }}/>
                         <Text style={[styles.tabText, activeTab === 'lista' && styles.tabTextActive]}>Mis Citas</Text>
                     </Pressable>
                     <Pressable 
                         style={[styles.tabBtn, activeTab === 'grafica' && styles.tabBtnActive]}
                         onPress={() => setActiveTab('grafica')}
                     >
-                        <MaterialIcons name="insights" size={20} color={activeTab === 'grafica' ? "#2563EB" : "#6B7280"} style={{ marginRight: 6 }}/>
-                        <Text style={[styles.tabText, activeTab === 'grafica' && styles.tabTextActive]}>Densidad</Text>
+                        <MaterialIcons name="insights" size={22} color={activeTab === 'grafica' ? "#4F46E5" : "#94A3B8"} style={{ marginRight: 8 }}/>
+                        <Text style={[styles.tabText, activeTab === 'grafica' && styles.tabTextActive]}>Métricas</Text>
                     </Pressable>
                 </View>
-                <ScrollView contentContainerStyle={styles.scrollContainer}>
+                <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                     {activeTab === 'lista' ? renderLista() : renderGrafica()}
                 </ScrollView>
             </SafeAreaView>
@@ -426,291 +430,363 @@ export default function CitasIndex() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#F3F4F6" },
-    tabBar: {
+    container: { flex: 1, backgroundColor: "#F8FAFC" },
+    tabContainer: {
         flexDirection: 'row',
         backgroundColor: '#FFFFFF',
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 0,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-        elevation: 2,
+        borderBottomColor: '#F1F5F9',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 3,
+        zIndex: 10,
     },
     tabBtn: {
         flex: 1,
         flexDirection: 'row',
-        paddingVertical: 15,
+        paddingVertical: 16,
         justifyContent: 'center',
         alignItems: 'center',
         borderBottomWidth: 3,
         borderBottomColor: 'transparent',
     },
     tabBtnActive: {
-        borderBottomColor: '#2563EB',
+        borderBottomColor: '#4F46E5',
     },
     tabText: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: '#6B7280'
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#94A3B8',
+        letterSpacing: 0.5,
     },
     tabTextActive: {
-        color: '#2563EB'
+        color: '#4F46E5'
     },
     scrollContainer: { flexGrow: 1, padding: 20, paddingBottom: 60 },
-    titulo: {
-        fontSize: 26,
-        fontWeight: "800",
-        color: "#1F2937",
-        marginBottom: 20,
-        marginTop: 10,
-    },
-    grid: { flexDirection: "column", gap: 20, marginBottom: 30 },
-    accionesRow: { flexDirection: "row", gap: 12 },
-    tarjetaMedia: { flex: 1, padding: 18 },
-    tarjeta: {
-        backgroundColor: "#fff",
-        padding: 25,
-        borderRadius: 16,
-        elevation: 4,
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+    grid: { flexDirection: "column", gap: 20, marginBottom: 25 },
+    accionesRow: { flexDirection: "row", gap: 15 },
+    tarjetaPressable: { flex: 1, borderRadius: 20, overflow: 'hidden', elevation: 8, shadowColor: '#4F46E5', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: {width:0, height: 5} },
+    tarjetaGradient: {
+        padding: 22,
         alignItems: "center",
         justifyContent: "center",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
+        height: 160,
     },
-    tarjetaTitulo: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#374151",
-        marginTop: 15,
-        marginBottom: 5,
+    iconCircleWrapper: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 12,
     },
-    tarjetaDesc: {
-        fontSize: 14,
-        color: "#6B7280",
+    tarjetaTituloWhite: {
+        fontSize: 17,
+        fontWeight: "800",
+        color: "#FFFFFF",
+        marginBottom: 4,
+        letterSpacing: 0.5,
+    },
+    tarjetaDescWhite: {
+        fontSize: 12,
+        color: "rgba(255,255,255,0.8)",
         textAlign: "center",
+        fontWeight: "500",
     },
     dashboardHeader: {
-        marginBottom: 15,
-        paddingBottom: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: "#E5E7EB"
+        flexDirection: 'column',
+        marginBottom: 20,
     },
     dashboardTitle: {
-        fontSize: 22,
-        fontWeight: "bold",
-        color: "#1F2937",
-        marginBottom: 10
+        fontSize: 24,
+        fontWeight: "900",
+        color: "#0F172A",
+        marginBottom: 12,
+        letterSpacing: -0.5,
     },
     filterContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 8,
-        marginTop: 5,
     },
     filterBtn: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 16,
-        backgroundColor: "#F3F4F6",
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: "#FFFFFF",
         borderWidth: 1,
-        borderColor: "#E5E7EB",
+        borderColor: "#E2E8F0",
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 2,
+        elevation: 1,
     },
     filterBtnActive: {
-        backgroundColor: "#E0E7FF",
-        borderColor: "#6366F1",
+        backgroundColor: "#EEF2FF",
+        borderColor: "#818CF8",
     },
     filterText: {
         fontSize: 12,
-        fontWeight: "600",
-        color: "#6B7280",
+        fontWeight: "700",
+        color: "#64748B",
+        letterSpacing: 0.5,
     },
     filterTextActive: {
         color: "#4F46E5",
     },
-    centerContainer: {
-        padding: 40,
-        alignItems: "center",
-        justifyContent: "center"
-    },
+    centerContainer: { padding: 40, alignItems: "center", justifyContent: "center" },
     emptyContainer: {
-        padding: 40,
+        padding: 50,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#FFF",
-        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: "#E5E7EB",
-        borderStyle: "dashed"
-    },
-    emptyText: {
+        borderColor: "#E2E8F0",
+        borderStyle: "dashed",
         marginTop: 10,
-        fontSize: 15,
-        color: "#9CA3AF",
-        fontStyle: "italic"
     },
+    emptyText: { marginTop: 15, fontSize: 16, color: "#94A3B8", fontWeight: '600' },
+    
+    // Cita Card Styles
     citaCard: {
         backgroundColor: "#FFFFFF",
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 15,
-        elevation: 2,
+        borderRadius: 20,
+        marginBottom: 18,
+        shadowColor: "#0F172A",
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
         borderWidth: 1,
-        borderColor: "#E5E7EB",
+        borderColor: '#F1F5F9',
+        overflow: 'hidden',
     },
     citaHeader: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: 12,
-        paddingBottom: 10,
+        padding: 16,
+        paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: "#F3F4F6",
+        borderBottomColor: "#F1F5F9",
+        backgroundColor: '#F8FAFC',
     },
-    citaDate: {
-        fontSize: 15,
+    dateBadge: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        width: 54,
+        height: 54,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    dateDay: { fontSize: 20, fontWeight: '900', color: '#0F172A', lineHeight: 22 },
+    dateMonth: { fontSize: 11, fontWeight: '700', color: '#6366F1' },
+    headerRight: {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        gap: 6,
+    },
+    citaTime: {
+        fontSize: 14,
         fontWeight: "700",
-        color: "#1F2937",
+        color: "#475569",
     },
-    statusBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 20,
+    statusGradientBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+        borderRadius: 12,
     },
     statusText: {
-        color: "#FFF",
+        color: "#FFFFFF",
         fontSize: 11,
-        fontWeight: "bold",
+        fontWeight: "800",
+        letterSpacing: 0.5,
     },
     citaBody: {
-        marginBottom: 12,
+        padding: 16,
+        flexDirection: 'row',
+        gap: 15,
+    },
+    infoBlock: {
+        flex: 1,
     },
     citaLabel: {
-        fontSize: 12,
-        color: "#6B7280",
-        fontWeight: "600",
-        marginBottom: 2,
+        fontSize: 11,
+        color: "#94A3B8",
+        fontWeight: "800",
+        letterSpacing: 0.8,
+        marginBottom: 4,
     },
     citaName: {
         fontSize: 16,
-        fontWeight: "600",
-        color: "#374151",
+        fontWeight: "700",
+        color: "#1E293B",
     },
     citaFooter: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        marginTop: 5,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     duracionText: {
         fontSize: 13,
-        color: "#6B7280",
-        fontWeight: "500",
+        color: "#64748B",
+        fontWeight: "600",
+    },
+    primeraCitaWrapper: {
+        backgroundColor: '#F5F3FF',
+        borderWidth: 1,
+        borderColor: '#DDD6FE',
+        borderRadius: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
     },
     primeraCitaBadge: {
         fontSize: 11,
-        color: "#8B5CF6",
-        backgroundColor: "#EDE9FE",
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 12,
-        fontWeight: "bold",
-        overflow: "hidden",
+        color: "#7C3AED",
+        fontWeight: "800",
+        letterSpacing: 0.5,
     },
+
     // Chart Styles
     controlsCard: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 15,
+        borderRadius: 20,
+        padding: 20,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        elevation: 2
+        borderColor: '#F1F5F9',
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
     },
     sectionHeading: {
         fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1F2937',
-        marginBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-        paddingBottom: 5,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 16,
+        letterSpacing: 0.2,
     },
     label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#4B5563',
-        marginBottom: 5,
-        marginTop: 10,
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#64748B',
+        marginBottom: 8,
+        marginTop: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     pickerWrapper: {
-        backgroundColor: '#F9FAFB',
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
-        borderColor: '#D1D5DB',
-        borderRadius: 8,
-        overflow: 'hidden',
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        height: 50,
+        justifyContent: "center",
     },
     picker: {
-        height: 50,
         width: '100%',
-        color: '#1F2937',
+        color: '#1E293B',
+        backgroundColor: "transparent",
     },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginTop: 10,
     },
     datePickerBtn: {
-        padding: 12,
-        backgroundColor: '#F9FAFB',
+        flexDirection: 'row',
+        padding: 14,
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
-        borderColor: '#D1D5DB',
-        borderRadius: 8,
-        alignItems: 'center'
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     datePickerText: {
-        fontSize: 15,
-        color: '#374151',
-        fontWeight: '500'
-    },
-    densityCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 20,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 5
-    },
-    densityLabel: {
         fontSize: 14,
-        color: '#6B7280',
-        fontWeight: '600',
-        marginBottom: 5
+        color: '#334155',
+        fontWeight: '600'
+    },
+    densityGradientCard: {
+        borderRadius: 20,
+        marginBottom: 20,
+        shadowColor: "#000",
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        shadowOffset: {width: 0, height: 6},
+        elevation: 6,
+        overflow: 'hidden',
+    },
+    densityOverlay: {
+        padding: 24,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+    },
+    densityLabelWhite: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: '700',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     densityRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: 5
+        marginVertical: 4
     },
-    densityTextStatus: {
-        fontSize: 26,
+    densityTextStatusWhite: {
+        fontSize: 32,
         fontWeight: '900',
+        color: '#FFFFFF',
         letterSpacing: 1
     },
-    densitySummary: {
-        marginTop: 10,
-        fontSize: 15,
-        color: '#4B5563',
-        fontStyle: 'italic'
+    densityPill: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignSelf: 'flex-start',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginTop: 12,
+    },
+    densitySummaryWhite: {
+        fontSize: 13,
+        color: '#FFFFFF',
+        fontWeight: '700',
     },
     graphContainer: {
         backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 15,
+        borderRadius: 20,
+        padding: 20,
+        paddingTop: 24,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        elevation: 2
+        borderColor: '#F1F5F9',
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    graphHeading: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 10,
     }
 });

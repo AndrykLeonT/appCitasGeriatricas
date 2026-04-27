@@ -2,12 +2,14 @@ import { initializeApp } from "firebase/app";
 import { child, get, getDatabase, push, ref, remove, set, update, query, orderByChild, equalTo } from 'firebase/database';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD_jsVshuAyx2ObSSslZFmrL91HYynPyfw",
-    authDomain: "citas-geriatricas.firebaseapp.com",
-    projectId: "citas-geriatricas",
-    storageBucket: "citas-geriatricas.firebasestorage.app",
-    messagingSenderId: "131107427459",
-    appId: "1:131107427459:web:3acd14a0dea0f8339c77b6"
+    apiKey: "AIzaSyANYOT0zNXZ5kiLG_jE5MNHp48-weO-zug",
+    authDomain: "evaluacion-c57c4.firebaseapp.com",
+    databaseURL: "https://evaluacion-c57c4-default-rtdb.firebaseio.com",
+    projectId: "evaluacion-c57c4",
+    storageBucket: "evaluacion-c57c4.firebasestorage.app",
+    messagingSenderId: "122284539196",
+    appId: "1:122284539196:web:5281d3cff6be364d833239",
+    measurementId: "G-HZ14ZY7L41"
 };
 
 const app = initializeApp(firebaseConfig);

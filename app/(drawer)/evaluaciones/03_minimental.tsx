@@ -1,6 +1,6 @@
 import { FormField } from "@/components/ui/formField";
 import { FormSection } from "@/components/ui/formSection";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
@@ -189,9 +189,11 @@ export default function PruebaMiniMental() {
       [palabra]: !prev[palabra],
     }));
   };
-  const { pacienteId = "", pacienteNombre = "" } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = "", pacienteNombre = "", idEvaluacion = "03_mini_mental" } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
   const [guardando, setGuardando] = useState(false);
 
@@ -747,13 +749,15 @@ export default function PruebaMiniMental() {
               try {
                 await guardarRegistroEvaluacion({
                   idPaciente: pacienteId,
-                  idEvaluacion: "03_mini_mental",
+                  idEvaluacion: idEvaluacion,
                   fecha: new Date().toISOString().split("T")[0],
                   puntaje,
+                  diagnostico: resultado
                 });
                 Alert.alert(
                   "Evaluación guardada",
-                  `Paciente: ${pacienteNombre}\nPuntaje: ${puntaje}/28\nInterpretación: ${resultado}`
+                  `Paciente: ${pacienteNombre}\nPuntaje: ${puntaje}/28\nInterpretación: ${resultado}`,
+                  [{ text: "OK", onPress: () => router.back() }]
                 );
               } catch {
                 Alert.alert("Error", "No se pudo guardar la evaluación. Verifique su conexión.");

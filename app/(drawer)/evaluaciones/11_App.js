@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
@@ -73,7 +73,8 @@ const getInterpretacion = (total) => {
 };
 
 export default function BradenScreen() {
-  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams();
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '11_braden' } = useLocalSearchParams();
 
   const [scores, setScores] = useState({
     percepcion: null, humedad: null, actividad: null,
@@ -95,16 +96,19 @@ export default function BradenScreen() {
     }
     if (guardado) return;
     try {
+      const diagnostico = getInterpretacion(total);
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: '11_braden',
+        idEvaluacion: idEvaluacion,
         fecha: new Date().toISOString().split('T')[0],
         puntaje: total,
+        diagnostico: diagnostico
       });
       setGuardado(true);
       Alert.alert(
         'Evaluación guardada',
-        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${total}/24\n${getInterpretacion(total)}`
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${total}/24\n${diagnostico}`,
+        [{ text: "OK", onPress: () => router.back() }]
       );
     } catch {
       Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');

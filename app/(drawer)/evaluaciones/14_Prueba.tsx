@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Image, PanResponder, StyleSheet, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -34,6 +34,7 @@ const Prueba = () => {
   });
 
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const imagenActualRef = useRef(imagenActual);
 
@@ -71,6 +72,9 @@ const Prueba = () => {
               aciertos: cAciertos,
               fallos: cFallos,
               total: 7,
+              pacienteId: params.pacienteId,
+              pacienteNombre: params.pacienteNombre,
+              idEvaluacion: params.idEvaluacion
             },
           });
 

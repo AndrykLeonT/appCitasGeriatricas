@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { getTemperaturaPorPaciente, getFrecuenciaCardiacaPorPaciente, SignoVital } from '../../../services/firebasePatients';
 import { getPresionArterialPorPaciente, SignoVitalSQLite } from '../../../services/sqliteSignosVitales';
 import { LineChart } from 'react-native-gifted-charts';
+import FloatingBackButton from '../../../components/FloatingBackButton';
 
 export default function SignosVitalesDashboard() {
     const { id, nombre } = useLocalSearchParams<{ id: string; nombre: string }>();
@@ -96,8 +97,9 @@ export default function SignosVitalesDashboard() {
     ].sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-            <View style={styles.headerContainer}>
+        <View style={{ flex: 1 }}>
+            <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+                <View style={styles.headerContainer}>
                 <Text style={styles.patientName}>{nombre}</Text>
                 <Text style={styles.dashboardSubtitle}>Dashboard de Signos Vitales</Text>
             </View>
@@ -301,7 +303,9 @@ export default function SignosVitalesDashboard() {
                 )}
             </View>
 
-        </ScrollView>
+            </ScrollView>
+            <FloatingBackButton />
+        </View>
     );
 }
 

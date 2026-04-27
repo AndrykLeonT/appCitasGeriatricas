@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { guardarRegistroEvaluacion } from "../../../services/firebaseEvaluaciones";
 
 const Resultado = () => {
   const router = useRouter();
@@ -14,12 +15,47 @@ const Resultado = () => {
   // Calcular porcentaje
   const porcentaje = Math.round((aciertos / total) * 100);
 
-  const volverAlInicio = () => {
-    router.push("/(drawer)/evaluaciones/14_AgudezaVisual");
+  const [guardando, setGuardando] = useState(false);
+
+  const pacienteId = typeof params.pacienteId === 'string' ? params.pacienteId : Array.isArray(params.pacienteId) ? params.pacienteId[0] : '';
+  const idEvaluacion = typeof params.idEvaluacion === 'string' ? params.idEvaluacion : Array.isArray(params.idEvaluacion) ? params.idEvaluacion[0] : '14_agudeza_visual';
+
+  const diagnostico = porcentaje >= 100
+    ? "Vision normal"
+    : porcentaje >= 80
+      ? "Discapacidad visual moderada"
+      : porcentaje >= 60
+        ? "Discapacidad visual grave"
+        : "Ceguera";
+
+  const guardarYVolver = async () => {
+    if (guardando) return;
+    setGuardando(true);
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: idEvaluacion,
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje: aciertos, // O porcentaje, dependiendo de la decisión, usaré aciertos por ahora
+        diagnostico: diagnostico
+      });
+      Alert.alert(
+        "Éxito", 
+        "Evaluación guardada correctamente.",
+        [{ text: "OK", onPress: () => router.navigate("/(drawer)/evaluaciones") }]
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo guardar la evaluación");
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const volverAIntentar = () => {
-    router.push("/(drawer)/evaluaciones/14_Prueba");
+    router.push({
+      pathname: "/(drawer)/evaluaciones/14_Prueba",
+      params: { pacienteId, pacienteNombre: params.pacienteNombre, idEvaluacion }
+    });
   };
 
   return (
@@ -32,13 +68,7 @@ const Resultado = () => {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              {porcentaje >= 100
-                ? "Vision normal"
-                : porcentaje >= 80
-                  ? "Discapacidad visual moderada"
-                  : porcentaje >= 60
-                    ? "Discapacidad visual grave"
-                    : "Ceguera"}
+              {diagnostico}
             </Text>
 
             <View style={styles.row}>
@@ -74,10 +104,11 @@ const Resultado = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.boton, styles.botonInicio]}
-            onPress={volverAlInicio}
+            style={[styles.boton, styles.botonInicio, guardando && { opacity: 0.7 }]}
+            onPress={guardarYVolver}
+            disabled={guardando}
           >
-            <Text style={styles.textoBoton}>Volver al Inicio</Text>
+            <Text style={styles.textoBoton}>{guardando ? "Guardando..." : "Guardar y Volver"}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

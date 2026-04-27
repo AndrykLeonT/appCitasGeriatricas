@@ -10,11 +10,14 @@ import {
     TextInput,
     View,
 } from "react-native";
+import CustomPicker from "../../../components/CustomPicker";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { registrarMovimientoBitacora } from "../../../services/sqliteBitacoraCitas";
 import { updateCitaInFirebase, deleteCitaFromFirebase, readCitasFromFirebase, Cita } from "../../../services/firebaseCitas";
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 export default function VerCitaScreen() {
     const { citaData } = useLocalSearchParams();
@@ -44,7 +47,7 @@ export default function VerCitaScreen() {
                 router.back();
             }
         }
-    }, [citaData]);
+    }, [citaData, router]);
 
     const onChangeDate = (event: any, selectedDate?: Date) => {
         const currentDate = selectedDate || fecha;
@@ -152,6 +155,28 @@ export default function VerCitaScreen() {
         ]);
     };
 
+    const exportarObservaciones = async () => {
+        if (!observaciones.trim()) {
+            Alert.alert("Sin datos", "No hay observaciones para exportar.");
+            return;
+        }
+        try {
+            const fileName = `Observaciones_Cita_${cita?.pacienteNombre.replace(/\s+/g, '_')}_${new Date().getTime()}.txt`;
+            const fileUri = FileSystem.documentDirectory + fileName;
+            const content = `Reporte de Observaciones Médicas\n\nPaciente: ${cita?.pacienteNombre}\nMédico: ${cita?.medicoNombre}\nFecha: ${new Date(cita?.fecha || '').toLocaleString()}\n\nObservaciones:\n${observaciones}`;
+            
+            await FileSystem.writeAsStringAsync(fileUri, content, { encoding: FileSystem.EncodingType.UTF8 });
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri);
+            } else {
+                Alert.alert("Archivo Guardado", `Guardado en: ${fileUri}`);
+            }
+        } catch (e) {
+            console.error("Error exporting file", e);
+            Alert.alert("Error", "Ocurrió un problema al exportar el archivo.");
+        }
+    };
+
     if (!cita) {
         return (
             <View style={styles.centerContainer}>
@@ -161,10 +186,8 @@ export default function VerCitaScreen() {
         );
     }
 
-    const citaDate = new Date(cita.fecha);
-
     return (
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Detalles de la Cita</Text>
             </View>
@@ -235,7 +258,7 @@ export default function VerCitaScreen() {
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Estatus de la Cita</Text>
                     <View style={styles.pickerContainer}>
-                        <Picker
+                        <CustomPicker
                             selectedValue={status}
                             onValueChange={(itemValue) => setStatus(itemValue)}
                             style={styles.picker}
@@ -243,7 +266,7 @@ export default function VerCitaScreen() {
                             <Picker.Item label="Agendado" value="agendado" />
                             <Picker.Item label="En Curso" value="en curso" />
                             <Picker.Item label="Concluida" value="concluida" />
-                        </Picker>
+                        </CustomPicker>
                     </View>
                 </View>
 
@@ -274,6 +297,22 @@ export default function VerCitaScreen() {
                 >
                     <Ionicons name="pulse-outline" size={22} color="#1F2937" style={{ marginRight: 8 }} />
                     <Text style={[styles.patientBtnText, {color: "#1F2937"}]}>Ver Signos Vitales</Text>
+                </Pressable>
+
+                <Pressable
+                    style={({ pressed }) => [styles.patientBtnSecondary, { opacity: pressed ? 0.8 : 1 }]}
+                    onPress={() => router.push({ pathname: "/(drawer)/evaluaciones", params: { pacienteId: cita.pacienteId } })}
+                >
+                    <Ionicons name="clipboard-outline" size={22} color="#1F2937" style={{ marginRight: 8 }} />
+                    <Text style={[styles.patientBtnText, {color: "#1F2937"}]}>Ver Pruebas Médicas</Text>
+                </Pressable>
+
+                <Pressable
+                    style={({ pressed }) => [styles.patientBtnSecondary, { opacity: pressed ? 0.8 : 1 }]}
+                    onPress={exportarObservaciones}
+                >
+                    <Ionicons name="document-text-outline" size={22} color="#1F2937" style={{ marginRight: 8 }} />
+                    <Text style={[styles.patientBtnText, {color: "#1F2937"}]}>Descargar Observaciones (.txt)</Text>
                 </Pressable>
             </View>
 
@@ -381,12 +420,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#D1D5DB",
         borderRadius: 8,
-        overflow: 'hidden'
+        height: 50,
+        justifyContent: "center",
     },
     picker: {
-        height: 50,
         width: "100%",
-        color: "#1F2937"
+        color: "#1F2937",
+        backgroundColor: "transparent",
     },
     input: {
         backgroundColor: "#F9FAFB",

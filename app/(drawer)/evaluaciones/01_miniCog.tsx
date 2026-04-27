@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import React, { useEffect, useState } from "react";
 import {
@@ -18,11 +18,12 @@ type AttemptKey = "palabra1" | "palabra2" | "palabra3" | "dibujoReloj";
 type Attempts = {
   [key in AttemptKey]: boolean;
 };
-
 const MiniCogScreen = () => {
-  const { pacienteId = "", pacienteNombre = "" } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = "", pacienteNombre = "", idEvaluacion = "" } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
 
   const [palabra1, setPalabra1] = useState("");
@@ -69,7 +70,7 @@ const MiniCogScreen = () => {
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: "01_mini_cog",
+        idEvaluacion: idEvaluacion || "01_mini_cog",
         fecha: new Date().toISOString().split("T")[0],
         puntaje: puntos,
       });
@@ -77,7 +78,8 @@ const MiniCogScreen = () => {
       setResultado(`Puntaje: ${puntos}/5 — Guardado`);
       Alert.alert(
         "Evaluación guardada",
-        `Paciente: ${pacienteNombre}\nPuntaje: ${puntos}/5\nInterpretación: ${interpretacion}`
+        `Paciente: ${pacienteNombre}\nPuntaje: ${puntos}/5\nInterpretación: ${interpretacion}`,
+        [{ text: "OK", onPress: () => router.back() }]
       );
     } catch {
       Alert.alert("Error", "No se pudo guardar la evaluación. Verifique su conexión.");

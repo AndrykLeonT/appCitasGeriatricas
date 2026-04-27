@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
@@ -63,9 +63,11 @@ const getInterpretacion = (total: number) => {
 };
 
 export default function NortonScreen() {
-  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '12_norton' } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
 
   const [nortonScores, setNortonScores] = useState({
@@ -92,14 +94,16 @@ export default function NortonScreen() {
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: '12_norton',
+        idEvaluacion: idEvaluacion,
         fecha: new Date().toISOString().split('T')[0],
         puntaje: totalNorton,
+        diagnostico: interpretacion.texto
       });
       setGuardado(true);
       Alert.alert(
         'Evaluación guardada',
-        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${totalNorton}/20\n${interpretacion.texto}`
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${totalNorton}/20\n${interpretacion.texto}`,
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch {
       Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');

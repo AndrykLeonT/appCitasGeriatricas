@@ -1,13 +1,53 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTheme } from "../../context/ThemeContext";
-import React, { useCallback } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useState, useCallback } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import { leerUltimasEvaluaciones, RegistroEvaluacion } from "../../services/firebaseEvaluaciones";
+import { readPatientsFromFirebase } from "../../services/firebasePatients";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const { isDarkMode } = useTheme();
+
+  const [recentEvals, setRecentEvals] = useState<(RegistroEvaluacion & { nombrePaciente?: string })[]>([]);
+  const [loadingEvals, setLoadingEvals] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const fetchRecentData = async () => {
+        setLoadingEvals(true);
+        try {
+          const [evals, patients] = await Promise.all([
+            leerUltimasEvaluaciones(3), // Get top 3 most recent
+            readPatientsFromFirebase()
+          ]);
+          
+          if (!isActive) return;
+
+          // Map patient names
+          const mappedEvals = evals.map(ev => {
+            const pac = patients.find(p => p.id === ev.idPaciente);
+            const nombrePaciente = pac ? `${pac.nombre} ${pac.apellidos}`.trim() : "Paciente Desconocido";
+            return { ...ev, nombrePaciente };
+          });
+
+          setRecentEvals(mappedEvals);
+        } catch (e) {
+          console.error("Error fetching recent data:", e);
+        } finally {
+          if (isActive) setLoadingEvals(false);
+        }
+      };
+
+      fetchRecentData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   return (
     <ScrollView
@@ -16,22 +56,31 @@ export default function HomeScreen() {
     >
       <Text style={[styles.titulo, isDarkMode && darkStyles.textoPrincipal]}>Administrador de Citas</Text>
 
-      {/* RESULTADO DE LA ÚLTIMA EVALUACIÓN */}
-      {params.puntaje ? (
-        <View style={[styles.tarjetaResultado, isDarkMode && darkStyles.tarjetaO]}>
-          <Text style={[styles.resultadoTitulo, isDarkMode && darkStyles.textoSecundario]}>Último GDS-15 Finalizado:</Text>
-          <Text style={styles.resultadoTexto}>
-            Puntaje: {params.puntaje} / 15
-          </Text>
-          <Text
-            style={[
-              styles.diagnostico,
-              { color: Number(params.puntaje) >= 5 ? "#EF4444" : "#10B981" },
-            ]}
-          >
-            {params.diagnostico}
-          </Text>
-        </View>
+      {/* ÚLTIMAS EVALUACIONES */}
+      <Text style={[styles.subtitulo, isDarkMode && darkStyles.textoSecundario, { marginTop: 0 }]}>Evaluaciones Recientes</Text>
+
+      {loadingEvals ? (
+        <ActivityIndicator size="small" color="#60A5FA" style={{ marginVertical: 20 }} />
+      ) : recentEvals.length > 0 ? (
+        recentEvals.map((ev) => (
+          <View key={ev.id} style={[styles.tarjetaResultado, isDarkMode && darkStyles.tarjetaO]}>
+            <Text style={[styles.resultadoTitulo, isDarkMode && darkStyles.textoSecundario]}>{ev.nombrePaciente}</Text>
+            <Text style={{ fontSize: 13, color: isDarkMode ? "#9CA3AF" : "#6B7280", marginBottom: 8 }}>
+              Prueba ID: {ev.idEvaluacion} • {ev.fecha}
+            </Text>
+            <Text style={styles.resultadoTexto}>
+              Puntaje: {ev.puntaje}
+            </Text>
+            <Text
+              style={[
+                styles.diagnostico,
+                { color: (typeof ev.puntaje === 'number' && ev.puntaje >= 5) || (ev.diagnostico && ev.diagnostico.toLowerCase().includes("riesgo")) ? "#EF4444" : "#10B981" },
+              ]}
+            >
+              {ev.diagnostico || "Evaluación Completada"}
+            </Text>
+          </View>
+        ))
       ) : (
         <View style={[styles.tarjetaAviso, isDarkMode && darkStyles.tarjetaO]}>
           <Text style={[styles.textoVacio, isDarkMode && darkStyles.textoSecundario]}>No hay evaluaciones recientes.</Text>

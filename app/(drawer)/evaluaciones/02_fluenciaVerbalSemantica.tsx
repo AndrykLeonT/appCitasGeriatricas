@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Gyroscope } from 'expo-sensors';
 import React, { useEffect, useState } from 'react';
 import {
@@ -15,10 +15,12 @@ import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluacione
 
 const FluenciaVerbalAnimales = () => {
     const TIEMPO_TOTAL = 60;
+    const router = useRouter();
 
-    const { pacienteId = "", pacienteNombre = "" } = useLocalSearchParams<{
+    const { pacienteId = "", pacienteNombre = "", idEvaluacion = "02_fluencia_verbal" } = useLocalSearchParams<{
         pacienteId: string;
         pacienteNombre: string;
+        idEvaluacion: string;
     }>();
 
     const [fase, setFase] = useState<'inicio' | 'instrucciones' | 'prueba' | 'resultados'>('inicio');
@@ -122,14 +124,15 @@ const FluenciaVerbalAnimales = () => {
         try {
             await guardarRegistroEvaluacion({
                 idPaciente: pacienteId,
-                idEvaluacion: '02_fluencia_verbal',
+                idEvaluacion: idEvaluacion,
                 fecha: new Date().toISOString().split('T')[0],
                 puntaje: animales.length,
             });
             setGuardado(true);
             Alert.alert(
                 'Resultado guardado',
-                `Paciente: ${pacienteNombre}\nAnimales válidos: ${animales.length}`
+                `Paciente: ${pacienteNombre}\nAnimales válidos: ${animales.length}`,
+                [{ text: "OK", onPress: () => router.back() }]
             );
         } catch {
             Alert.alert('Error', 'No se pudo guardar el resultado. Verifique su conexión.');

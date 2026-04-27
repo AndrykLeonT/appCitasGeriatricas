@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -11,6 +11,7 @@ import {
     Switch,
     TextInput,
 } from "react-native";
+import CustomPicker from "../../../components/CustomPicker";
 import { Picker } from "@react-native-picker/picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as SQLite from "expo-sqlite";
@@ -165,7 +166,7 @@ export default function CrearCitaScreen() {
     }
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
             <Text style={styles.instrucciones}>
                 Seleccione el paciente y el médico para agendar una nueva cita.
             </Text>
@@ -176,30 +177,32 @@ export default function CrearCitaScreen() {
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Paciente</Text>
                     <View style={styles.pickerContainer}>
-                        <Picker
+                        <CustomPicker
                             selectedValue={selectedPacienteId}
                             onValueChange={(itemValue) => setSelectedPacienteId(itemValue)}
                             style={styles.picker}
                         >
+                            <Picker.Item label="Seleccione un paciente..." value="" color="#9CA3AF" />
                             {pacientes.map((p) => (
                                 <Picker.Item key={p.id} label={`${p.nombre} ${p.apellidos}`} value={p.id} />
                             ))}
-                        </Picker>
+                        </CustomPicker>
                     </View>
                 </View>
 
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Médico</Text>
                     <View style={styles.pickerContainer}>
-                        <Picker
+                        <CustomPicker
                             selectedValue={selectedMedicoId}
                             onValueChange={(itemValue) => setSelectedMedicoId(itemValue)}
                             style={styles.picker}
                         >
+                            <Picker.Item label="Seleccione un médico..." value="" color="#9CA3AF" />
                             {medicos.map((m) => (
                                 <Picker.Item key={m.id} label={`Dr. ${m.nombre} ${m.apellido1} (${m.tituloEspecialidad || 'Médico General'})`} value={m.id} />
                             ))}
-                        </Picker>
+                        </CustomPicker>
                     </View>
                 </View>
 
@@ -335,12 +338,13 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#D1D5DB",
         borderRadius: 8,
-        overflow: 'hidden'
+        height: 50,
+        justifyContent: "center",
     },
     picker: {
-        height: 50,
         width: "100%",
-        color: "#1F2937"
+        color: "#1F2937",
+        backgroundColor: "transparent",
     },
     switchContainer: {
         flexDirection: 'row',

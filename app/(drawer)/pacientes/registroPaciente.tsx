@@ -1,5 +1,6 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
+import CustomPicker from '../../../components/CustomPicker';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -88,7 +89,7 @@ export default function RegistroPaciente() {
             };
             fetchPatient();
         }
-    }, [id]);
+    }, [id, router]);
 
     const handleChange = (name: string, value: string) => {
         setFormData((prev) => ({ ...prev, [name]: value }));
@@ -108,11 +109,16 @@ export default function RegistroPaciente() {
         try {
             if (id) {
                 await updatePatientInFirebase(id, formData);
-                Alert.alert("Éxito", "Paciente actualizado exitosamente.");
+                Alert.alert("Éxito", "Paciente actualizado exitosamente.", [
+                    { text: "Aceptar", onPress: () => router.back() }
+                ]);
             } else {
                 await createPatientInFirebase(formData);
-                Alert.alert("Éxito", "Paciente registrado exitosamente.");
+                Alert.alert("Éxito", "Paciente registrado exitosamente.", [
+                    { text: "Aceptar", onPress: () => router.back() }
+                ]);
             }
+            // Clear form (optional since we navigate back, but good practice)
             setFormData({
                 nombre: "", apellidos: "", edad: "", sexo: "", fechaNacimiento: "",
                 estadoCivil: "", ocupacion: "", escolaridad: "", telefono: "",
@@ -120,7 +126,6 @@ export default function RegistroPaciente() {
                 tipoSangre: "", alergias: "", enfermedadesCronicas: "", cirugiasPrevias: "",
                 medicamentosActuales: "", peso: "", talla: "",
             });
-            router.back();
         } catch {
             Alert.alert("Error", "Hubo un problema al guardar los datos del paciente. Inténtalo de nuevo.");
         } finally {
@@ -142,7 +147,7 @@ export default function RegistroPaciente() {
     return (
         <SafeAreaProvider>
             <SafeAreaView style={styles.container}>
-                <ScrollView style={styles.scrollContent}>
+                <ScrollView style={styles.scrollContent} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                     <Text style={styles.title}>{id ? "Editar Paciente" : "Registro de Paciente"}</Text>
                     <Text style={styles.subtitle}>Complete la información requerida clínica y personal.</Text>
 
@@ -182,7 +187,7 @@ export default function RegistroPaciente() {
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Sexo</Text>
                                 <View style={styles.pickerWrapper}>
-                                    <Picker
+                                    <CustomPicker
                                         selectedValue={formData.sexo}
                                         onValueChange={(v) => handleChange("sexo", v)}
                                         style={styles.picker}
@@ -194,7 +199,7 @@ export default function RegistroPaciente() {
                                                 value={o}
                                             />
                                         ))}
-                                    </Picker>
+                                    </CustomPicker>
                                 </View>
                             </View>
                         </View>
@@ -227,7 +232,7 @@ export default function RegistroPaciente() {
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Estado Civil</Text>
                                 <View style={styles.pickerWrapper}>
-                                    <Picker
+                                    <CustomPicker
                                         selectedValue={formData.estadoCivil}
                                         onValueChange={(v) => handleChange("estadoCivil", v)}
                                         style={styles.picker}
@@ -239,7 +244,7 @@ export default function RegistroPaciente() {
                                                 value={o}
                                             />
                                         ))}
-                                    </Picker>
+                                    </CustomPicker>
                                 </View>
                             </View>
                         </View>
@@ -257,7 +262,7 @@ export default function RegistroPaciente() {
                             <View style={[styles.formGroup, { flex: 1 }]}>
                                 <Text style={styles.label}>Escolaridad</Text>
                                 <View style={styles.pickerWrapper}>
-                                    <Picker
+                                    <CustomPicker
                                         selectedValue={formData.escolaridad}
                                         onValueChange={(v) => handleChange("escolaridad", v)}
                                         style={styles.picker}
@@ -269,7 +274,7 @@ export default function RegistroPaciente() {
                                                 value={o}
                                             />
                                         ))}
-                                    </Picker>
+                                    </CustomPicker>
                                 </View>
                             </View>
                         </View>
@@ -474,10 +479,12 @@ const styles = StyleSheet.create({
         borderColor: "#d1d5db",
         borderRadius: 6,
         backgroundColor: "#ffffff",
-        overflow: "hidden",
+        height: 50,
+        justifyContent: "center",
     },
     picker: {
-        height: 44,
+        width: "100%",
+        backgroundColor: "transparent",
     },
     dateButton: {
         backgroundColor: "#ffffff",

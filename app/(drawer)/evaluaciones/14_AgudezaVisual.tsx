@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, } from 'react-native-safe-area-context';
@@ -6,19 +6,26 @@ import { SafeAreaProvider, SafeAreaView, } from 'react-native-safe-area-context'
 const Formulario = () => {
 
 
+    const router = useRouter();
+    const { pacienteId = '', pacienteNombre = '', idEvaluacion = '14_agudeza_visual' } = useLocalSearchParams<{
+        pacienteId: string;
+        pacienteNombre: string;
+        idEvaluacion: string;
+    }>();
+
     const [isEnabled, setIsEnabled] = useState(false);
     const toggleSwitch = () => setIsEnabled(previousState => !previousState);
 
     const verificacion = () => {
         if (isEnabled) {
-            router.push('/(drawer)/evaluaciones/14_Prueba')
+            router.push({
+                pathname: '/(drawer)/evaluaciones/14_Prueba',
+                params: { pacienteId, pacienteNombre, idEvaluacion }
+            });
         } else {
             alert('Por favor, verifica que la E tenga las dimensiones correctas antes de continuar.')
         }
     }
-
-
-    const router = useRouter();
 
     return (
         <SafeAreaProvider>

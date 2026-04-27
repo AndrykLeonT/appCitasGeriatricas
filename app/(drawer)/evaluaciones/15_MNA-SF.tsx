@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 import {
   Alert,
   SafeAreaView,
@@ -82,6 +84,14 @@ const quizData: Question[] = [
 
 
 const QuizApp = () => {
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '15_mna_sf' } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+    idEvaluacion: string;
+  }>();
+  
+  const [guardando, setGuardando] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [peso, setPeso] = useState('');
   const [estatura, setEstatura] = useState('');
@@ -97,7 +107,9 @@ const QuizApp = () => {
     setAnswers(prev => ({ ...prev, [questionId]: optionId }));
   };
 
-  const calculateTotal = () => {
+  const calculateTotal = async () => {
+    if (guardando) return;
+    setGuardando(true);
     let total = 0;
     Object.keys(answers).forEach((qId) => {
       const question = quizData.find((q) => q.id === qId);
@@ -106,7 +118,25 @@ const QuizApp = () => {
     });
 
     let diagnostico = total >= 12 ? "Estado nutricional normal" : total >= 8 ? "Riesgo de malnutrición" : "Malnutrición";
-    Alert.alert("Resultado MNA", `Puntaje: ${total} pts.\n${diagnostico}`);
+    
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: idEvaluacion,
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje: total,
+        diagnostico: diagnostico
+      });
+      Alert.alert(
+        "Resultado MNA", 
+        `Puntaje: ${total} pts.\n${diagnostico}`,
+        [{ text: "OK", onPress: () => router.back() }]
+      );
+    } catch {
+      Alert.alert("Error", "No se pudo guardar la evaluación.");
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const isFinished = Object.keys(answers).length === quizData.length;
@@ -178,11 +208,11 @@ const QuizApp = () => {
         ))}
 
         <TouchableOpacity
-          style={[styles.submitBtn, !isFinished && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, (!isFinished || guardando) && styles.submitBtnDisabled]}
           onPress={calculateTotal}
-          disabled={!isFinished}
+          disabled={!isFinished || guardando}
         >
-          <Text style={styles.submitBtnText}>Ver Resultado Final</Text>
+          <Text style={styles.submitBtnText}>{guardando ? "Guardando..." : "Ver Resultado Final"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

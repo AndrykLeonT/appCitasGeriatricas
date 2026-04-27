@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Accelerometer } from 'expo-sensors';
 import React, { useState } from 'react';
 import {
@@ -30,9 +30,11 @@ const PREGUNTAS = [
 ];
 
 export default function FormularioScreen() {
-  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '05_gds15' } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
 
   const [respuestas, setRespuestas] = useState<Record<number, string>>({});
@@ -76,20 +78,20 @@ export default function FormularioScreen() {
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: '05_gds15',
+        idEvaluacion: idEvaluacion,
         fecha: new Date().toISOString().split('T')[0],
         puntaje,
+        diagnostico,
       });
       setGuardado(true);
+      Alert.alert(
+        'Resultado de Evaluación',
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje} / 15\nInterpretación: ${diagnostico}`,
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     } catch {
-      // show result even if save fails
+      Alert.alert('Error', 'No se pudo guardar la evaluación. Verifique su conexión.');
     }
-
-    Alert.alert(
-      'Resultado de Evaluación',
-      `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje} / 15\nInterpretación: ${diagnostico}`,
-      [{ text: 'OK', onPress: () => setRespuestas({}) }]
-    );
   };
 
   return (

@@ -6,9 +6,15 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
+    Alert
 } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { guardarRegistroEvaluacion } from "../../../services/firebaseEvaluaciones";
 
-export default function EscalaMaltrato({ setScreen }) {
+export default function EscalaMaltrato() {
+    const router = useRouter();
+    const { pacienteId = '', pacienteNombre = '', idEvaluacion = '19_maltrato' } = useLocalSearchParams();
+    const [guardando, setGuardando] = useState(false);
     const preguntas = [
     "¿Le han golpeado?",
     "¿Le han dado puñetazos o patadas?",
@@ -54,6 +60,33 @@ export default function EscalaMaltrato({ setScreen }) {
     return total;
     };
 
+    const handleGuardar = async () => {
+        if (guardando) return;
+        setGuardando(true);
+
+        const total = calcularTotal();
+        const diagnostico = total > 0 ? `Sospecha de maltrato (${total} respuestas afirmativas)` : "Sin indicadores de maltrato evidentes";
+
+        try {
+            await guardarRegistroEvaluacion({
+                idPaciente: pacienteId,
+                idEvaluacion: idEvaluacion,
+                fecha: new Date().toISOString().split("T")[0],
+                puntaje: total,
+                diagnostico: diagnostico,
+            });
+            Alert.alert(
+                "Éxito", 
+                "Evaluación guardada correctamente.",
+                [{ text: "OK", onPress: () => router.back() }]
+            );
+        } catch {
+            Alert.alert("Error", "No se pudo guardar la evaluación");
+        } finally {
+            setGuardando(false);
+        }
+    };
+
     const columnasA = [
     { label: "No", value: 0 },
     { label: "Sí", value: 1 },
@@ -79,6 +112,9 @@ return (
     <ScrollView horizontal>
     <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Escala Geriátrica de Maltrato</Text>
+        {pacienteNombre ? (
+            <Text style={{fontSize: 16, marginBottom: 20, color: '#4B5563'}}>Paciente: {pacienteNombre}</Text>
+        ) : null}
 
         {/* Encabezado */}
         <View style={styles.headerRow}>
@@ -179,11 +215,12 @@ return (
         </Text>
 
         <TouchableOpacity
-        style={styles.button}
-        onPress={() => setScreen("Resumen")}
+        style={[styles.button, guardando && { opacity: 0.7 }]}
+        onPress={handleGuardar}
+        disabled={guardando}
         >
         <Text style={styles.buttonText}>
-            Finalizar Evaluación
+            {guardando ? "GUARDANDO..." : "GUARDAR EVALUACIÓN"}
         </Text>
         </TouchableOpacity>
     </ScrollView>

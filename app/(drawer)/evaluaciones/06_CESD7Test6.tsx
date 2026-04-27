@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   Alert, Pressable,
@@ -25,9 +25,11 @@ const opciones = [
 ];
 
 const CESD7Test = () => {
-  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '06_cesd7' } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
 
   const [respuestas, setRespuestas] = useState(new Array(7).fill(null));
@@ -59,19 +61,20 @@ const CESD7Test = () => {
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: '06_cesd7',
+        idEvaluacion: idEvaluacion,
         fecha: new Date().toISOString().split('T')[0],
         puntaje: puntajeTotal,
+        diagnostico: interpretacion
       });
       setGuardado(true);
+      Alert.alert(
+        'Resultado',
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntajeTotal} puntos\n${interpretacion}`,
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
     } catch {
-      // show result even if save fails
+      Alert.alert('Error', 'No se pudo guardar el resultado. Verifique su conexión.');
     }
-
-    Alert.alert(
-      'Resultado',
-      `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntajeTotal} puntos\n${interpretacion}`
-    );
   };
 
   return (

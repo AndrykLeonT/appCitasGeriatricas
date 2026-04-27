@@ -6,8 +6,12 @@
     ScrollView,
     TouchableOpacity,
     Platform,
+    Alert,
+    Pressable
     } from "react-native";
     import DateTimePicker from "@react-native-community/datetimepicker";
+    import { useLocalSearchParams, useRouter } from "expo-router";
+    import { guardarRegistroEvaluacion } from "../../../services/firebaseEvaluaciones";
 
     const Checkbox = ({ label, selected, onPress }) => (
     <TouchableOpacity
@@ -54,8 +58,41 @@
     });
 
     const [showDatePicker, setShowDatePicker] = useState(false);
+    const [guardando, setGuardando] = useState(false);
+
+    const router = useRouter();
+    const { pacienteId = '', pacienteNombre = '', idEvaluacion = '18_oars' } = useLocalSearchParams();
 
     const setField = (key, value) => setForm({ ...form, [key]: value });
+
+    const handleGuardar = async () => {
+        if (guardando) return;
+        setGuardando(true);
+        
+        let diagnostico = "Evaluación OARS Completada.";
+        if (form.soledad === "A menudo" || form.convivencia.includes("Insatisfactoria")) {
+            diagnostico += " Posible riesgo social detectado.";
+        }
+        
+        try {
+            await guardarRegistroEvaluacion({
+                idPaciente: pacienteId,
+                idEvaluacion: idEvaluacion,
+                fecha: new Date().toISOString().split('T')[0],
+                puntaje: 0, // OARS es más cualitativo
+                diagnostico: diagnostico,
+            });
+            Alert.alert(
+                "Éxito", 
+                "Evaluación guardada correctamente.",
+                [{ text: "OK", onPress: () => router.back() }]
+            );
+        } catch {
+            Alert.alert("Error", "No se pudo guardar la evaluación");
+        } finally {
+            setGuardando(false);
+        }
+    };
 
     const toggleMulti = (key, value) => {
         const arr = form[key];
@@ -81,8 +118,14 @@
         </Text>
 
         {/* Datos básicos */}
-        <Text>Nombre:</Text>
-        <TextInput style={styles.input} onChangeText={(v) => setField("nombre", v)} />
+        {pacienteNombre ? (
+            <Text style={{fontSize: 16, marginBottom: 10, color: '#4B5563'}}>Paciente: {pacienteNombre}</Text>
+        ) : (
+            <>
+                <Text>Nombre:</Text>
+                <TextInput style={styles.input} onChangeText={(v) => setField("nombre", v)} />
+            </>
+        )}
 
         <Text>Edad:</Text>
         <TextInput
@@ -331,6 +374,12 @@
         <Text style={styles.q}>Evaluador:</Text>
         <TextInput style={styles.input} onChangeText={(v) => setField("evaluador", v)} />
 
+        <Pressable style={[styles.btnGuardar, guardando && { opacity: 0.7 }]} onPress={handleGuardar} disabled={guardando}>
+            <Text style={{ textAlign: "center", color: "#FFF", fontWeight: "900", fontSize: 16 }}>
+                {guardando ? "GUARDANDO..." : "GUARDAR EVALUACIÓN"}
+            </Text>
+        </Pressable>
+
         <View style={{ height: 40 }} />
         </ScrollView>
     );
@@ -346,5 +395,11 @@
     q: {
         marginTop: 14,
         fontWeight: "bold",
+    },
+    btnGuardar: {
+        backgroundColor: "#6D28D9",
+        padding: 15,
+        borderRadius: 10,
+        marginVertical: 20,
     },
     };

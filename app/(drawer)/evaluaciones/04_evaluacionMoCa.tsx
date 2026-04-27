@@ -2,7 +2,7 @@ import { FormField } from '@/components/ui/formField';
 import { FormSection } from '@/components/ui/formSection';
 import { Accelerometer } from 'expo-sensors';
 import { StatusBar } from 'expo-status-bar';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
   Alert,
@@ -18,9 +18,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 
 export default function EvaluacionMoCaScreen() {
-  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+  const router = useRouter();
+  const { pacienteId = '', pacienteNombre = '', idEvaluacion = '04_moca' } = useLocalSearchParams<{
     pacienteId: string;
     pacienteNombre: string;
+    idEvaluacion: string;
   }>();
 
   const [isAccelActive, setIsAccelActive] = React.useState(false);
@@ -108,14 +110,16 @@ export default function EvaluacionMoCaScreen() {
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
-        idEvaluacion: '04_moca',
+        idEvaluacion: idEvaluacion,
         fecha: new Date().toISOString().split('T')[0],
         puntaje: totalScore,
+        diagnostico: interpretation.text
       });
       setGuardado(true);
       Alert.alert(
         'Evaluación guardada',
-        `Paciente: ${pacienteNombre}\nPuntaje: ${totalScore}/30\n${interpretation.text}`
+        `Paciente: ${pacienteNombre}\nPuntaje: ${totalScore}/30\n${interpretation.text}`,
+        [{ text: "OK", onPress: () => router.back() }]
       );
     } catch {
       Alert.alert('Error', 'No se pudo guardar la evaluación. Verifique su conexión.');
