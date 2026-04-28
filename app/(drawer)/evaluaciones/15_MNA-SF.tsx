@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import { Accelerometer, Gyroscope, Magnetometer } from 'expo-sensors';
+import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,18 +12,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 
-interface Option {
-  id: string;
-  label: string;
-  value: number;
-}
-
-interface Question {
-  id: string;
-  question: string;
-  options: Option[];
-}
+interface Option { id: string; label: string; value: number; }
+interface Question { id: string; question: string; options: Option[]; }
 
 const quizData: Question[] = [
   {
@@ -80,11 +75,22 @@ const quizData: Question[] = [
   },
 ];
 
-
 const QuizApp = () => {
+  const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
+    pacienteId: string;
+    pacienteNombre: string;
+  }>();
+
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [peso, setPeso] = useState('');
   const [estatura, setEstatura] = useState('');
+  const [guardado, setGuardado] = useState(false);
+
+  const [nivelPerturbacion, setNivelPerturbacion] = useState(0);
+  const [alertaRoja, setAlertaRoja] = useState(false);
+  const [magData, setMagData] = useState({ x: 0, y: 0, z: 0 });
+  const historialMovimiento = useRef<number[]>([]);
+  const isAlertVisible = useRef(false);
 
   const imcCalculado = useMemo(() => {
     const p = parseFloat(peso);
@@ -93,35 +99,159 @@ const QuizApp = () => {
     return null;
   }, [peso, estatura]);
 
+  useEffect(() => {
+    Accelerometer.setUpdateInterval(100);
+    Gyroscope.setUpdateInterval(100);
+    Magnetometer.setUpdateInterval(100);
+
+    const confirmarReinicio = () => {
+      if (isAlertVisible.current) return;
+      isAlertVisible.current = true;
+      Alert.alert(
+        'Reinicio rápido detectado',
+        '¿Deseas borrar todas las respuestas y el IMC actual?',
+        [
+          { text: 'Cancelar', style: 'cancel', onPress: () => { isAlertVisible.current = false; } },
+          {
+            text: 'Sí, reiniciar test', style: 'destructive', onPress: () => {
+              setAnswers({});
+              setPeso('');
+              setEstatura('');
+              setGuardado(false);
+              isAlertVisible.current = false;
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    };
+
+    const accSub = Accelerometer.addListener(data => {
+      const gForce = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
+      let movimientoReal = Math.abs(gForce - 1.0);
+      if (movimientoReal < 0.11) movimientoReal = 0;
+
+      historialMovimiento.current.push(movimientoReal);
+      const suma = historialMovimiento.current.reduce((a, b) => a + b, 0);
+      const media = suma / historialMovimiento.current.length;
+      setNivelPerturbacion(media);
+      if (media > 0.55) confirmarReinicio();
+      setAlertaRoja(media > 0.15);
+    });
+
+    const gyroSub = Gyroscope.addListener(() => {});
+    const magSub = Magnetometer.addListener(d => setMagData(d));
+
+    const intervaloLimpieza = setInterval(() => {
+      historialMovimiento.current = [];
+      setNivelPerturbacion(0);
+      setAlertaRoja(false);
+    }, 5000);
+
+    return () => {
+      accSub.remove();
+      gyroSub.remove();
+      magSub.remove();
+      clearInterval(intervaloLimpieza);
+    };
+  }, []);
+
+  const heading = (() => {
+    let h = Math.atan2(magData.x, magData.y) * (180 / Math.PI);
+    if (h < 0) h += 360;
+    return Math.round(h);
+  })();
+
+  const getDireccionCardinal = (a: number) => {
+    if (a >= 337.5 || a < 22.5) return 'Norte (N)';
+    if (a < 67.5) return 'Noreste (NE)';
+    if (a < 112.5) return 'Este (E)';
+    if (a < 157.5) return 'Sureste (SE)';
+    if (a < 202.5) return 'Sur (S)';
+    if (a < 247.5) return 'Suroeste (SO)';
+    if (a < 292.5) return 'Oeste (O)';
+    return 'Noroeste (NO)';
+  };
+
   const handleSelect = (questionId: string, optionId: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: optionId }));
   };
 
   const calculateTotal = () => {
     let total = 0;
-    Object.keys(answers).forEach((qId) => {
-      const question = quizData.find((q) => q.id === qId);
-      const option = question?.options.find((o) => o.id === answers[qId]);
-      if (option) total += option.value;
+    quizData.forEach(q => {
+      const opt = q.options.find(o => o.id === answers[q.id]);
+      if (opt) total += opt.value;
     });
+    return total;
+  };
 
-    let diagnostico = total >= 12 ? "Estado nutricional normal" : total >= 8 ? "Riesgo de malnutrición" : "Malnutrición";
-    Alert.alert("Resultado MNA", `Puntaje: ${total} pts.\n${diagnostico}`);
+  const handleGuardar = async () => {
+    if (guardado) return;
+    const total = calculateTotal();
+    try {
+      await guardarRegistroEvaluacion({
+        idPaciente: pacienteId,
+        idEvaluacion: '15_mna_sf',
+        fecha: new Date().toISOString().split('T')[0],
+        puntaje: total,
+      });
+      setGuardado(true);
+      const diagnostico = total >= 12
+        ? 'Estado nutricional normal'
+        : total >= 8 ? 'Riesgo de malnutrición' : 'Malnutrición';
+      Alert.alert(
+        'Evaluación guardada',
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${total} pts.\n${diagnostico}`
+      );
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');
+    }
   };
 
   const isFinished = Object.keys(answers).length === quizData.length;
+  const total = isFinished ? calculateTotal() : null;
+  const diagnostico = total !== null
+    ? (total >= 12 ? 'Estado nutricional normal' : total >= 8 ? 'Riesgo de malnutrición' : 'Malnutrición')
+    : null;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Evaluación MNA</Text>
+        <Text style={styles.title}>Evaluación MNA-SF</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+
+        {pacienteNombre !== '' && (
+          <View style={styles.pacienteBanner}>
+            <Text style={styles.pacienteBannerText}>👤 {pacienteNombre}</Text>
+          </View>
+        )}
+
+        {/* ── Sensores ── */}
+        <View style={styles.sensorCard}>
+          <Text style={styles.sensorTitle}>Sensores activos</Text>
+          <View style={styles.sensorRow}>
+            <View style={[styles.sensorBox, alertaRoja && styles.sensorBoxDanger]}>
+              <Text style={[styles.sensorLabel, alertaRoja && styles.textDanger]}>Perturbación</Text>
+              <Text style={[styles.sensorValue, alertaRoja && styles.textDanger]}>
+                {(nivelPerturbacion * 100).toFixed(1)}%
+              </Text>
+              <Text style={styles.sensorSub}>{alertaRoja ? '¡Movimiento constante!' : 'Estable'}</Text>
+            </View>
+            <View style={styles.sensorBox}>
+              <Text style={styles.sensorLabel}>Brújula</Text>
+              <Text style={styles.sensorValue}>{heading}°</Text>
+              <Text style={styles.sensorSub}>{getDireccionCardinal(heading)}</Text>
+            </View>
+          </View>
+          <Text style={styles.hint}>Agita el teléfono para reiniciar el test</Text>
+        </View>
+
+        {/* ── Cuestionario ── */}
         {quizData.map((item, index) => (
           <View key={item.id}>
-            
-            {/* INSERTAR CALCULADORA ANTES DE LA PREGUNTA 6 (Índice 5) */}
             {index === 5 && (
               <View style={styles.imcCalculatorCard}>
                 <Text style={styles.imcTitle}>Calcular el IMC</Text>
@@ -158,7 +288,7 @@ const QuizApp = () => {
             <View style={styles.questionCard}>
               <Text style={styles.questionText}>{item.question}</Text>
               <View style={styles.optionsContainer}>
-                {item.options.map((option) => {
+                {item.options.map(option => {
                   const isSelected = answers[item.id] === option.id;
                   return (
                     <TouchableOpacity
@@ -177,13 +307,23 @@ const QuizApp = () => {
           </View>
         ))}
 
-        <TouchableOpacity
-          style={[styles.submitBtn, !isFinished && styles.submitBtnDisabled]}
-          onPress={calculateTotal}
-          disabled={!isFinished}
+        {total !== null && (
+          <View style={styles.resultCard}>
+            <Text style={styles.resultCardTitle}>Puntaje: {total} / 14</Text>
+            <Text style={styles.resultCardDiag}>{diagnostico}</Text>
+          </View>
+        )}
+
+        <Pressable
+          style={[styles.submitBtn, (!isFinished || guardado) && styles.submitBtnDisabled]}
+          onPress={handleGuardar}
+          disabled={!isFinished || guardado}
         >
-          <Text style={styles.submitBtnText}>Ver Resultado Final</Text>
-        </TouchableOpacity>
+          <Text style={styles.submitBtnText}>
+            {guardado ? '✓ Evaluación guardada' : 'Guardar evaluación'}
+          </Text>
+        </Pressable>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -193,7 +333,31 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F2F2F7' },
   header: { padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderColor: '#CCC' },
   title: { fontSize: 22, fontWeight: 'bold', color: '#1C1C1E' },
-  scrollContent: { padding: 16 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+
+  pacienteBanner: {
+    backgroundColor: '#EFF6FF', borderRadius: 8, padding: 10,
+    marginBottom: 16, borderWidth: 1, borderColor: '#BFDBFE',
+  },
+  pacienteBannerText: { fontSize: 14, fontWeight: '700', color: '#1E40AF', textAlign: 'center' },
+
+  sensorCard: {
+    backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 20,
+    elevation: 3, borderWidth: 1, borderColor: '#E5E5EA',
+  },
+  sensorTitle: { fontSize: 15, fontWeight: 'bold', color: '#2c3e50', marginBottom: 10 },
+  sensorRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  sensorBox: {
+    width: '48%', backgroundColor: '#f8f9fa', padding: 10,
+    borderRadius: 8, borderWidth: 1, borderColor: '#eee',
+  },
+  sensorBoxDanger: { borderColor: '#ff4d4d', backgroundColor: '#ffe6e6' },
+  sensorLabel: { fontSize: 12, color: '#7f8c8d', fontWeight: '600' },
+  sensorValue: { fontSize: 15, color: '#2980b9', fontWeight: 'bold' },
+  sensorSub: { fontSize: 10, color: '#95a5a6' },
+  textDanger: { color: '#cc0000' },
+  hint: { fontSize: 11, color: '#e67e22', marginTop: 10, fontStyle: 'italic', textAlign: 'center' },
+
   questionCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 20 },
   questionText: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   optionsContainer: { gap: 8 },
@@ -201,15 +365,10 @@ const styles = StyleSheet.create({
   optionSelected: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
   optionLabel: { fontSize: 15 },
   textSelected: { color: '#FFF', fontWeight: 'bold' },
-  
-  // Estilos de la Calculadora
+
   imcCalculatorCard: {
-    backgroundColor: '#E8F0FE',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#BDD7FF',
+    backgroundColor: '#E8F0FE', borderRadius: 12, padding: 16,
+    marginBottom: 20, borderWidth: 1, borderColor: '#BDD7FF',
   },
   imcTitle: { fontSize: 16, fontWeight: 'bold', color: '#1967D2', marginBottom: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -218,8 +377,15 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#FFF', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#DADCE0' },
   resultBadge: { marginTop: 12, backgroundColor: '#1967D2', padding: 8, borderRadius: 6, alignItems: 'center' },
   resultText: { color: '#FFF', fontWeight: 'bold' },
-  
-  submitBtn: { backgroundColor: '#34C759', padding: 18, borderRadius: 12, alignItems: 'center' },
+
+  resultCard: {
+    backgroundColor: '#F0FDF4', borderRadius: 12, padding: 16, marginBottom: 20,
+    borderWidth: 1, borderColor: '#BBF7D0', alignItems: 'center',
+  },
+  resultCardTitle: { fontSize: 20, fontWeight: 'bold', color: '#166534' },
+  resultCardDiag: { fontSize: 15, color: '#374151', marginTop: 4 },
+
+  submitBtn: { backgroundColor: '#34C759', padding: 18, borderRadius: 12, alignItems: 'center', marginBottom: 30 },
   submitBtnDisabled: { backgroundColor: '#A2A2A2' },
   submitBtnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
 });

@@ -1,6 +1,7 @@
+import { Accelerometer } from 'expo-sensors';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import BouncyCheckbox from 'react-native-bouncy-checkbox';
 import { guardarRegistroEvaluacion } from '../../../services/firebaseEvaluaciones';
 
@@ -58,6 +59,105 @@ const PREGUNTAS: { key: KatzKey; titulo: string; descripcion: string }[] = [
   },
 ];
 
+const clasificarKatz = (answers: KatzAnswers): string => {
+  const independientes = Object.values(answers).filter(v => v === 'si').length;
+  const dependientes = Object.values(answers).filter(v => v === 'no').length;
+  const { bath, dress, toilet, transfer } = answers;
+
+  if (independientes === 6) return 'A – Independencia en todas las actividades básicas de la vida diaria.';
+  if (independientes === 5) return 'B – Independencia en todas las actividades menos en una.';
+  if (dependientes === 6) return 'G – Dependiente en las seis actividades básicas de la vida diaria.';
+  if (bath === 'no') {
+    if (dress === 'no' && toilet === 'no' && transfer === 'no') return 'F – Dependencia en baño, vestido, sanitario y transferencias, más otra actividad.';
+    if (dress === 'no' && toilet === 'no') return 'E – Dependencia en baño, vestido y sanitario, más otra actividad.';
+    if (dress === 'no') return 'D – Dependencia en baño y vestido, más otra actividad.';
+    return 'C – Dependencia en baño, más otra actividad adicional.';
+  }
+  return 'H – Dependencia en dos o más actividades (no clasifica en C–F).';
+};
+
+interface SensorBlockProps {
+  onResult: (score: number) => void;
+  lastScore: number | null;
+  transferValue: 'si' | 'no' | null;
+}
+
+function SensorResultBlock({ onResult, lastScore, transferValue }: SensorBlockProps) {
+  const [running, setRunning] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const subRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => { subRef.current?.remove(); };
+  }, []);
+
+  const iniciarPrueba = () => {
+    setRunning(true);
+    setAnalyzing(true);
+    Accelerometer.setUpdateInterval(100);
+    const samples: number[] = [];
+    subRef.current = Accelerometer.addListener((data) => {
+      const mag = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
+      samples.push(mag);
+    });
+
+    setTimeout(() => {
+      subRef.current?.remove();
+      setRunning(false);
+      setAnalyzing(false);
+      const mean = samples.reduce((a, b) => a + b, 0) / Math.max(samples.length, 1);
+      const variance = samples.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(samples.length, 1);
+      let peaks = 0;
+      for (let i = 1; i < samples.length - 1; i++) {
+        if (samples[i] > samples[i - 1] * 1.15 && samples[i] > samples[i + 1] * 1.15 && samples[i] > mean + 0.02) {
+          peaks++;
+        }
+      }
+      const score = Math.min(100, Math.round(variance * 1000 + peaks * 10));
+      onResult(score);
+    }, 7000);
+  };
+
+  return (
+    <View style={sensorStyles.container}>
+      <Text style={sensorStyles.label}>Prueba con sensores del dispositivo</Text>
+      <Text style={sensorStyles.hint}>
+        El paciente realiza los movimientos de transferencia durante 7 segundos mientras el dispositivo detecta el movimiento.
+      </Text>
+      <Pressable
+        onPress={iniciarPrueba}
+        disabled={running}
+        style={[sensorStyles.btn, running && sensorStyles.btnRunning]}
+      >
+        <Text style={sensorStyles.btnText}>{running ? 'Grabando… (7 seg)' : 'Iniciar prueba de transferencia'}</Text>
+      </Pressable>
+      {analyzing && (
+        <View style={sensorStyles.analyzing}>
+          <ActivityIndicator color="#6200ee" />
+          <Text style={sensorStyles.analyzingText}>Analizando datos…</Text>
+        </View>
+      )}
+      {lastScore !== null && !analyzing && (
+        <Text style={sensorStyles.result}>
+          Resultado del sensor: {lastScore} pts → Transferencia: {transferValue === 'si' ? 'Sí (independiente)' : 'No (requiere asistencia)'}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+const sensorStyles = StyleSheet.create({
+  container: { marginTop: 10, padding: 12, backgroundColor: '#F5F0FF', borderRadius: 10, borderWidth: 1, borderColor: '#DDD6FE' },
+  label: { fontSize: 13, fontWeight: '700', color: '#5B21B6', marginBottom: 4 },
+  hint: { fontSize: 12, color: '#6D28D9', marginBottom: 8, lineHeight: 18 },
+  btn: { backgroundColor: '#7C3AED', padding: 10, borderRadius: 8, alignItems: 'center' },
+  btnRunning: { backgroundColor: '#A78BFA' },
+  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  analyzing: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  analyzingText: { color: '#5B21B6', fontSize: 13 },
+  result: { marginTop: 8, fontSize: 13, color: '#4C1D95', fontWeight: '600' },
+});
+
 export default function KatzIndex() {
   const { pacienteId = '', pacienteNombre = '' } = useLocalSearchParams<{
     pacienteId: string;
@@ -69,15 +169,21 @@ export default function KatzIndex() {
     transfer: null, continence: null, feeding: null,
   });
   const [guardado, setGuardado] = useState(false);
+  const [lastSensorScore, setLastSensorScore] = useState<number | null>(null);
 
   const setAnswer = (key: KatzKey, value: 'si' | 'no') => {
     setAnswers(prev => ({ ...prev, [key]: prev[key] === value ? null : value }));
   };
 
+  const handleSensorResult = (score: number) => {
+    setLastSensorScore(score);
+    setAnswers(prev => ({ ...prev, transfer: score > 30 ? 'si' : 'no' }));
+  };
+
   const handleGuardar = async () => {
     if (guardado) return;
     const puntaje = Object.values(answers).filter(v => v === 'si').length;
-    const interpretacion = puntaje >= 6 ? 'Independiente' : puntaje >= 4 ? 'Dependencia leve' : 'Dependencia severa';
+    const clasificacion = clasificarKatz(answers);
     try {
       await guardarRegistroEvaluacion({
         idPaciente: pacienteId,
@@ -88,7 +194,7 @@ export default function KatzIndex() {
       setGuardado(true);
       Alert.alert(
         'Evaluación guardada',
-        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje}/6\n${interpretacion}`
+        `${pacienteNombre ? 'Paciente: ' + pacienteNombre + '\n' : ''}Puntaje: ${puntaje}/6\n\n${clasificacion}`
       );
     } catch {
       Alert.alert('Error', 'No se pudo guardar. Verifique su conexión.');
@@ -105,6 +211,12 @@ export default function KatzIndex() {
         </View>
       )}
 
+      <View style={styles.instrucciones}>
+        <Text style={styles.instruccionesTexto}>
+          Seleccione "Sí" si la persona puede realizar la actividad de forma independiente o con asistencia mínima, y "No" si requiere ayuda completa o no puede realizarla. En la sección de transferencias puede usar los sensores del dispositivo para apoyar la evaluación.
+        </Text>
+      </View>
+
       {PREGUNTAS.map((p, i) => (
         <View key={p.key}>
           <Text style={styles.preguntaTitulo}>{p.titulo}</Text>
@@ -114,6 +226,7 @@ export default function KatzIndex() {
               <View style={styles.checkboxItem}>
                 <Text style={styles.checkLabel}>Sí</Text>
                 <BouncyCheckbox
+                  useBuiltInState={false}
                   isChecked={answers[p.key] === 'si'}
                   onPress={() => setAnswer(p.key, 'si')}
                   fillColor="#3B82F6"
@@ -123,6 +236,7 @@ export default function KatzIndex() {
               <View style={styles.checkboxItem}>
                 <Text style={styles.checkLabel}>No</Text>
                 <BouncyCheckbox
+                  useBuiltInState={false}
                   isChecked={answers[p.key] === 'no'}
                   onPress={() => setAnswer(p.key, 'no')}
                   fillColor="#EF4444"
@@ -131,6 +245,15 @@ export default function KatzIndex() {
               </View>
             </View>
           </View>
+
+          {p.key === 'transfer' && (
+            <SensorResultBlock
+              onResult={handleSensorResult}
+              lastScore={lastSensorScore}
+              transferValue={answers.transfer}
+            />
+          )}
+
           {i < PREGUNTAS.length - 1 && <View style={styles.separador} />}
         </View>
       ))}
@@ -165,6 +288,15 @@ const styles = StyleSheet.create({
     borderColor: '#BFDBFE',
   },
   pacienteBannerText: { fontSize: 14, fontWeight: '700', color: '#1E40AF', textAlign: 'center' },
+  instrucciones: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  instruccionesTexto: { fontSize: 13, color: '#5B21B6', lineHeight: 18 },
   preguntaTitulo: { fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#1F2937' },
   row: { flexDirection: 'row', alignItems: 'center' },
   descripcion: { fontSize: 14, flex: 1, color: '#4B5563', lineHeight: 20 },

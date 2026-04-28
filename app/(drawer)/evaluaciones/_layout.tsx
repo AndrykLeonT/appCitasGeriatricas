@@ -12,6 +12,8 @@ export default function EvaluacionesLayout() {
             <Stack.Screen name="06_CESD7Test6" options={{ title: "CESD-7 ítems" }} />
             <Stack.Screen name="07_KatzIndex" options={{ title: "Índice de Katz" }} />
             <Stack.Screen name="08_Lawton" options={{ title: "Índice de Lawton" }} />
+            <Stack.Screen name="09_sppb" options={{ title: "SPPB" }} />
+            <Stack.Screen name="10_frail" options={{ title: "FRAIL" }} />
             <Stack.Screen name="11_App" options={{ title: "Escala Braden" }} />
             <Stack.Screen name="12_prueba" options={{ title: "Escala Norton" }} />
             <Stack.Screen name="14_AgudezaVisual" options={{ title: "Agudeza Visual" }} />

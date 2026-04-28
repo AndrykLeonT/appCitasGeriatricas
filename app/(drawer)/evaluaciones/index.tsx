@@ -22,6 +22,8 @@ const EVALUACIONES = [
     { label: "06. CESD-7 ítems", route: "06_CESD7Test6", idEvaluacion: "06_cesd7" },
     { label: "07. Índice de Katz", route: "07_KatzIndex", idEvaluacion: "07_katz" },
     { label: "08. Índice de Lawton", route: "08_Lawton", idEvaluacion: "08_lawton" },
+    { label: "09. SPPB", route: "09_sppb", idEvaluacion: "09_sppb" },
+    { label: "10. FRAIL", route: "10_frail", idEvaluacion: "10_frail" },
     { label: "11. Escala Braden", route: "11_App", idEvaluacion: "11_braden" },
     { label: "12. Escala Norton", route: "12_prueba", idEvaluacion: "12_norton" },
     { label: "14. Agudeza Visual", route: "14_AgudezaVisual", idEvaluacion: "14_agudeza_visual" },
